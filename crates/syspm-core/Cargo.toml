@@ -1,11 +1,15 @@
 [package]
 name = "syspm-core"
 version.workspace = true
+categories.workspace = true
 edition.workspace = true
+homepage.workspace = true
+keywords.workspace = true
 license.workspace = true
-publish = false
+readme = "../../README.md"
+repository.workspace = true
 rust-version.workspace = true
-description = "Core library for syspm, a SysML v2 and KerML package manager"
+description = "Core library for syspm, a SysML v2 and KerML package manager (internal; no stability guarantees)"
 
 [dependencies]
 serde.workspace = true

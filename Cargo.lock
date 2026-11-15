@@ -214,7 +214,7 @@ dependencies = [
 
 [[package]]
 name = "syspm"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "anyhow",
  "clap",
@@ -223,7 +223,7 @@ dependencies = [
 
 [[package]]
 name = "syspm-core"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "serde",
  "serde_json",

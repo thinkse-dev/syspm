@@ -3,9 +3,13 @@ members = ["crates/syspm-cli", "crates/syspm-core"]
 resolver = "3"
 
 [workspace.package]
-version = "0.1.0"
+version = "0.0.1"
+categories = ["command-line-utilities", "development-tools"]
 edition = "2024"
+homepage = "https://github.com/thinkse-dev/syspm"
+keywords = ["sysml", "kerml", "package-manager", "mbse"]
 license = "MIT OR Apache-2.0"
+repository = "https://github.com/thinkse-dev/syspm"
 # MSRV: equal to the pinned toolchain in rust-toolchain.toml until an older
 # toolchain is verified in CI.
 rust-version = "1.99"
