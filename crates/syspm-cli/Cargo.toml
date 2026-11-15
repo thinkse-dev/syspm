@@ -1,0 +1,13 @@
+[package]
+name = "syspm"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+rust-version.workspace = true
+description = "Package manager for SysML v2 and KerML projects"
+
+[dependencies]
+anyhow.workspace = true
+clap.workspace = true
+syspm-core = { path = "../syspm-core" }

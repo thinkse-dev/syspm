@@ -1,0 +1,28 @@
+# Local Git hooks (https://lefthook.dev). Install once with `lefthook install`.
+# These are a convenience; GitHub Actions CI is the authoritative check.
+# Commands run from the repository root regardless of where Git is invoked.
+
+pre-commit:
+  jobs:
+    - name: rustfmt
+      run: cargo fmt --all -- --check
+      fail_text: "Run `cargo fmt --all` and re-stage your changes."
+    - name: dprint
+      run: dprint check
+      fail_text: "Run `dprint fmt` and re-stage your changes (install dprint first if missing: `cargo install --locked dprint`)."
+    - name: actionlint
+      glob: ".github/workflows/*.{yml,yaml}"
+      run: actionlint
+
+commit-msg:
+  jobs:
+    - name: conventional-commit
+      run: cog verify --file {1}
+
+pre-push:
+  piped: true
+  jobs:
+    - name: clippy
+      run: cargo clippy --workspace --all-targets --locked -- -D warnings
+    - name: test
+      run: cargo test --workspace --locked

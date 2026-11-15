@@ -1,0 +1,6 @@
+[toolchain]
+# Pinned for reproducible formatting and lint results locally and in CI.
+# Keep in sync with `rust-version` in Cargo.toml when bumping.
+channel = "1.99.1"
+components = ["rustfmt", "clippy"]
+profile = "minimal"

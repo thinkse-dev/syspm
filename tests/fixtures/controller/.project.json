@@ -1,0 +1,14 @@
+{
+  "name": "controller",
+  "version": "0.2.0",
+  "description": "Illustrative manifest fixture with usages; not a complete interchange project",
+  "usage": [
+    {
+      "resource": "https://example.invalid/common-interfaces.kpar",
+      "versionConstraint": "^0.1.0"
+    },
+    {
+      "resource": "https://example.invalid/units.kpar"
+    }
+  ]
+}

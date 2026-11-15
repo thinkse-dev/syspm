@@ -1,0 +1,11 @@
+# Cocogitto configuration (https://docs.cocogitto.io).
+# Used only to validate Conventional Commits 1.0.0 messages; version bumps and
+# changelog generation are intentionally not configured.
+#
+# Allowed types are Cocogitto's defaults, which match .github/workflows/pr-title.yml:
+# feat, fix, docs, test, refactor, perf, build, ci, chore, style, revert.
+# Scopes are optional and unrestricted.
+
+ignore_merge_commits = true
+# Allow `git commit --fixup`/`--squash`; these are squashed before merging.
+ignore_fixup_commits = true
