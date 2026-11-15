@@ -9,7 +9,7 @@ license.workspace = true
 readme = "../../README.md"
 repository.workspace = true
 rust-version.workspace = true
-description = "Core library for syspm, a SysML v2 and KerML package manager"
+description = "Core library for syspm, a SysML v2 and KerML package manager (internal; no stability guarantees)"
 
 [dependencies]
 serde.workspace = true
