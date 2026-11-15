@@ -1,0 +1,32 @@
+# Keeps SHA-pinned GitHub Actions and Cargo dependencies current.
+# Commit prefixes produce Conventional Commit PR titles accepted by pr-title.yml,
+# e.g. "ci(deps): bump ..." and "build(deps): bump ...".
+# The Rust toolchain (rust-toolchain.toml) and dprint plugins (dprint.json) are bumped
+# manually; see CONTRIBUTING.md.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 14
+    commit-message:
+      prefix: ci
+      include: scope
+    groups:
+      actions:
+        patterns: ["*"]
+
+  - package-ecosystem: cargo
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 14
+    commit-message:
+      prefix: build
+      include: scope
+    groups:
+      cargo:
+        patterns: ["*"]

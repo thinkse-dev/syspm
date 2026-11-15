@@ -1,0 +1,13 @@
+[package]
+name = "syspm-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+rust-version.workspace = true
+description = "Core library for syspm, a SysML v2 and KerML package manager"
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
