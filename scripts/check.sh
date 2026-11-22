@@ -9,3 +9,5 @@ cargo fmt --all -- --check
 cargo clippy --workspace --all-targets --locked -- -D warnings
 cargo test --workspace --locked
 cargo build --workspace --locked
+# CI runs this as a separate job. It fetches the RustSec advisory database, so it needs network access.
+cargo deny --locked check

@@ -5,6 +5,9 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  # Weekly, so that an advisory published after a merge is reported without waiting for a change.
+  schedule:
+    - cron: "0 6 * * 1"
 
 permissions:
   contents: read
@@ -43,3 +46,27 @@ jobs:
         run: cargo test --workspace --locked
       - name: Build
         run: cargo build --workspace --locked
+
+  # Dependency advisories, licenses, sources, and duplicate versions, as deny.toml sets out.
+  deny:
+    runs-on: ubuntu-latest
+    env:
+      # Not updated by Dependabot. Bump both together, by hand; see CONTRIBUTING.md.
+      CARGO_DENY_VERSION: 0.20.2
+      CARGO_DENY_SHA256: 9f12ed4c49936e09b48bf862b595cde2fe64fcbd9d74dfacac6131ca824c8d5f
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install pinned toolchain (rust-toolchain.toml)
+        run: rustup toolchain install
+      - name: Install cargo-deny (pinned, checksum verified)
+        run: |
+          archive="cargo-deny-${CARGO_DENY_VERSION}-x86_64-unknown-linux-musl"
+          curl --proto '=https' --tlsv1.2 -sSfL -o "${RUNNER_TEMP}/${archive}.tar.gz" \
+            "https://github.com/EmbarkStudios/cargo-deny/releases/download/${CARGO_DENY_VERSION}/${archive}.tar.gz"
+          echo "${CARGO_DENY_SHA256}  ${RUNNER_TEMP}/${archive}.tar.gz" | sha256sum --check --strict
+          tar -xzf "${RUNNER_TEMP}/${archive}.tar.gz" -C "${RUNNER_TEMP}"
+          install -m 0755 "${RUNNER_TEMP}/${archive}/cargo-deny" "${HOME}/.cargo/bin/cargo-deny"
+      - name: Audit dependencies (cargo-deny)
+        run: cargo deny --locked check
