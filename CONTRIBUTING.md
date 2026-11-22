@@ -14,6 +14,7 @@ workflow is intentionally lightweight and will tighten as it grows.
 | Cocogitto (`cog`) | Conventional Commit validation            | `cargo install --locked cocogitto` (or `brew install cocogitto`) |
 | dprint            | Formatting for Markdown, TOML, JSON, YAML | `cargo install --locked dprint` (or `brew install dprint`)       |
 | actionlint        | GitHub Actions workflow linting           | `brew install actionlint`                                        |
+| cargo-deny        | Dependency advisories, licenses, sources  | `cargo install --locked cargo-deny@0.20.2` (the version CI uses) |
 
 No Node.js is needed.
 
@@ -30,6 +31,7 @@ checksums, and put the binaries on your `PATH`.
 rustup toolchain install
 
 cargo install --locked cocogitto dprint
+cargo install --locked cargo-deny@0.20.2  # match CARGO_DENY_VERSION in ci.yml
 brew install lefthook actionlint
 
 # Enable the Git hooks (re-run after changing lefthook.yml, or to repair hooks)
@@ -68,6 +70,7 @@ dprint check                                            # check them only
 actionlint                                              # lint .github/workflows
 cargo clippy --workspace --all-targets --locked -- -D warnings
 cargo test --workspace --locked
+cargo deny --locked check                               # dependency policy (deny.toml)
 cargo run -p syspm -- --help
 ./scripts/check.sh                                      # everything CI runs
 ```
@@ -106,8 +109,67 @@ cargo run -p syspm -- --help
   significant architecture changes in an issue before you start.
 - **Dependencies:** prefer the standard library. Add a crate only when there is
   a concrete need, declare shared versions in the root
-  `[workspace.dependencies]`, and commit `Cargo.lock`.
+  `[workspace.dependencies]`, and commit `Cargo.lock`. Every dependency must
+  pass the [dependency policy](#dependency-policy).
 - Don't add abstractions ahead of a feature that uses them.
+
+## Dependency policy
+
+`deny.toml` sets the policy, and `cargo deny --locked check` enforces it: in CI
+on every PR and push to `main` and weekly on `main`, and locally in
+`./scripts/check.sh`. It needs network access to fetch the RustSec advisory
+database.
+
+| Check      | Fails on                                                                                        | Warns on                         |
+| ---------- | ----------------------------------------------------------------------------------------------- | -------------------------------- |
+| advisories | A vulnerability, unmaintained, or unsound advisory for any crate in the graph; a yanked version |                                  |
+| licenses   | A license that is not allowed (Apache-2.0, MIT, Unicode-3.0)                                    | An allowed license nothing uses  |
+| bans       | A registry dependency without a version requirement                                             | More than one version of a crate |
+| sources    | Any registry other than crates.io, or any Git source                                            |                                  |
+
+The dependencies of every platform are checked, not only the one you build on.
+Dev-dependencies are checked for advisories and sources but not licenses,
+because they are not part of the binary.
+
+The advisory database changes daily, so a PR can fail on an advisory it did not
+cause. Fix it in that PR or in a separate one first, as described below.
+
+### Handling a finding
+
+- **Vulnerability, unsound, or yanked:** update the affected crate to a fixed
+  version, usually with `cargo update -p <crate>`, in a `build(deps):` commit,
+  and run `./scripts/check.sh`. If the fix needs a new major version of a
+  direct dependency, treat it like any other dependency change.
+- **Unmaintained:** open an issue to replace the crate. Ignore the advisory in
+  the meantime only as described below.
+- **No fix available:** ignoring an advisory is the last resort and needs a
+  maintainer's approval in the PR. Add one entry to `[advisories] ignore`,
+  naming the advisory ID, never a whole crate, with a `reason` that says why
+  syspm is not affected or why the risk is accepted, and links the issue that
+  tracks its removal. Remove the entry once a fix is available.
+- **License:** allowing a new license is a policy change that needs a
+  maintainer's approval. Check that it is compatible with distributing syspm
+  under MIT OR Apache-2.0. When only one crate needs it, prefer an exception
+  for that crate (`exceptions = [{ crate = "...", allow = ["..."] }]`) over
+  adding it to `allow`.
+- **Source:** dependencies come from crates.io. Any other source needs a
+  maintainer's approval and an `allow-registry` or `allow-git` entry naming
+  exactly that source.
+- **Duplicate versions:** these are warnings. Remove them when an update makes
+  it easy, and don't add `skip` entries just to silence them.
+
+Never disable or narrow a whole check, for example with `unmaintained = "none"`,
+to make a build pass.
+
+### Updating cargo-deny
+
+Dependabot does not update cargo-deny. To update it:
+
+1. In `.github/workflows/ci.yml`, set `CARGO_DENY_VERSION` and
+   `CARGO_DENY_SHA256` together. The checksum is in the release's
+   `cargo-deny-<version>-x86_64-unknown-linux-musl.tar.gz.sha256` file.
+2. Update the version in the install commands in this file.
+3. Install the new version locally and run `./scripts/check.sh`.
 
 ## Git workflow
 
@@ -226,6 +288,7 @@ just as well, because the `commit-msg` hook validates the message either way.
 | Clippy, `-D warnings`              |            |            |    ✓     |       ✓       |                     |
 | `cargo test --workspace --locked`  |            |            |    ✓     |       ✓       |                     |
 | `cargo build --workspace --locked` |            |            |          |       ✓       |                     |
+| `cargo deny --locked check`        |            |            |          |       ✓       |                     |
 | PR title is a Conventional Commit  |            |            |          |               |          ✓          |
 
 Two more automations run on PRs. Neither is a merge requirement:
@@ -236,8 +299,12 @@ Two more automations run on PRs. Neither is a merge requirement:
 - **Dependabot** (`.github/dependabot.yml`) opens weekly grouped update PRs
   for GitHub Actions (`ci(deps): ...`) and Cargo (`build(deps): ...`),
   ignoring releases less than 14 days old. Review them like any other PR. The
-  Rust toolchain and dprint plugins are bumped manually; for the plugins, run
-  `dprint config update`, then `dprint fmt`.
+  Rust toolchain, dprint plugins, and cargo-deny are bumped manually; for the
+  plugins, run `dprint config update`, then `dprint fmt`, and for cargo-deny,
+  see [Updating cargo-deny](#updating-cargo-deny).
+
+`ci.yml` also runs every week on `main`, so that an advisory published after a
+merge is reported without waiting for the next change.
 
 Local hooks are a convenience that gives fast feedback; they can be skipped
 (`git commit --no-verify`, `LEFTHOOK=0 git push`) and nothing guarantees they
@@ -260,7 +327,8 @@ A PR is ready to merge when:
 - **commit-msg rejects the message:** the error points to the problem. Fix the
   message, or check it first with `cog verify "<message>"`. If you use
   `git commit -m`, your message is still in the shell history.
-- **`cog`, `lefthook`, `dprint`, or `actionlint`: command not found:** install the
+- **`cargo deny` fails:** see [Handling a finding](#handling-a-finding).
+- **`cog`, `lefthook`, `dprint`, `actionlint`, or `cargo deny`: command not found:** install the
   tool (see above) and make sure `~/.cargo/bin` or the Homebrew prefix is on
   your `PATH`.
 - **Hooks aren't running:** run `lefthook install`. To debug,

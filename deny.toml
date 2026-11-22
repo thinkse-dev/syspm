@@ -1,0 +1,33 @@
+# Dependency policy, checked by cargo-deny (https://embarkstudios.github.io/cargo-deny/).
+# Run `cargo deny --locked check`; CONTRIBUTING.md explains how to handle a finding.
+#
+# There is no [graph] target filter, so the dependencies of every platform Cargo
+# resolves are checked, including those only built on Windows.
+
+[advisories]
+# A vulnerability advisory always fails; cargo-deny has no setting to lower it.
+# Unmaintained and unsound advisories fail too, wherever the crate is in the graph,
+# and so does a yanked version, which is often yanked for soundness or security.
+unmaintained = "all"
+unsound = "all"
+yanked = "deny"
+# Each entry needs an advisory ID and a reason. See CONTRIBUTING.md before adding one.
+ignore = []
+
+[licenses]
+# Any license not listed is denied. All are compatible with syspm's MIT OR Apache-2.0.
+# Unicode-3.0 is required by unicode-ident, which the derive macros use at build time.
+allow = ["Apache-2.0", "MIT", "Unicode-3.0"]
+
+[bans]
+# Duplicate versions are reported but do not fail: they cost build time, not safety.
+multiple-versions = "warn"
+# Every dependency from a registry needs a version requirement. Unpublished
+# workspace crates may use path dependencies without one.
+wildcards = "deny"
+allow-wildcard-paths = true
+
+[sources]
+# Only crates.io, the default, is allowed. Any other registry or Git source fails.
+unknown-registry = "deny"
+unknown-git = "deny"
