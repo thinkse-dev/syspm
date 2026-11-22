@@ -85,9 +85,13 @@ cargo run -p syspm -- --help
 - **Linting:** Clippy's default lints, with every warning treated as an error.
   Fix the code rather than adding `#[allow(...)]`. If an allow is genuinely
   needed, scope it as narrowly as possible and add a comment explaining why.
-- **Tests:** every change comes with tests. Put unit tests next to the code,
-  integration tests in each crate's `tests/` directory, and shared inputs in
-  `tests/fixtures/`. Don't write tests for features that don't exist yet.
+- **Tests:** every change comes with tests. Put integration tests in each crate's `tests/`
+  directory and shared inputs in `tests/fixtures/`. Don't write tests for
+  features that don't exist yet.
+  - Unit tests go in a `#[cfg(test)] mod tests { … }` block at the end of the
+    module they test.
+  - When the tests make the module hard to read, move them to
+    `<module>/tests.rs` and declare them with `#[cfg(test)] mod tests;`.
 - **Errors:**
   - `syspm-core` returns typed errors derived with `thiserror`, so callers can
     match on the failure. Add a variant only when a caller needs to tell that
@@ -99,19 +103,39 @@ cargo run -p syspm -- --help
   - `syspm-cli` uses `anyhow::Result`. Add `.context(...)` where it helps the
     user, and use `bail!` for CLI-level failures. `main` prints `syspm:
     {error:#}` (the whole cause chain on one line) to stderr.
-  - Output: results go to stdout and diagnostics to stderr. Exit codes are
-    `0` for success, `1` for a failed command, and `2` for a usage error
-    (from clap).
+  - Output: a command's results go to stdout, and execution failures and fatal
+    summaries go to stderr. A validation finding is a result, so it goes to
+    stdout even when it makes the command fail. Exit codes are `0` for success,
+    `1` for a failed command, and `2` for a usage error (from clap).
   - Avoid `unwrap()`/`expect()` in production paths where failure is
     realistically possible (they are fine in tests).
 - **Architecture:** package-management logic belongs in `syspm-core`.
-  `syspm-cli` is limited to argument parsing, dispatch, and output. Discuss
-  significant architecture changes in an issue before you start.
+  `syspm-cli` is limited to argument parsing, dispatch, and output. Read
+  [docs/architecture.md](docs/architecture.md) before you change architecture,
+  and propose design changes as described in
+  [Proposing design changes](#proposing-design-changes).
 - **Dependencies:** prefer the standard library. Add a crate only when there is
   a concrete need, declare shared versions in the root
   `[workspace.dependencies]`, and commit `Cargo.lock`. Every dependency must
   pass the [dependency policy](#dependency-policy).
 - Don't add abstractions ahead of a feature that uses them.
+
+## Proposing design changes
+
+Open an issue before you start on a change to behavior, file formats, or the
+architecture. Describe the problem, the change you propose, and the
+alternatives you considered. Small fixes and changes that follow an existing
+specification don't need one.
+
+- **Normative rules go in `docs/specs/`:** anything another implementation
+  would need to reproduce syspm's results, such as a file format, a digest, or
+  an error code. Each rule has an identifier that tests can refer to. Change
+  the specification in the same PR as the code, or before it.
+- **Architecture goes in [docs/architecture.md](docs/architecture.md):** crate
+  boundaries, design rules, and deliberately deferred decisions. Moving an item
+  out of "Deliberately deferred decisions" needs an issue first.
+- **Plans go in [docs/roadmap.md](docs/roadmap.md)** and the GitHub
+  Milestones.
 
 ## Dependency policy
 
@@ -184,7 +208,8 @@ Simplified trunk-based development:
 - `main` is the only permanent branch.
 - Create short-lived branches from an up-to-date `main`.
 - Associate meaningful work with a GitHub Issue, and use its native issue number.
-- Assign the issue to the GitHub Milestone (`vX.Y`) it belongs to, if any.
+- Assign the issue to the GitHub Milestone (`vX.Y.Z — <name>`) it belongs to,
+  if any; see [docs/roadmap.md](docs/roadmap.md).
 - Open pull requests that target `main`.
 - Squash-merge, then delete the branch.
 
@@ -344,18 +369,21 @@ A PR is ready to merge when:
 - Versions are [SemVer](https://semver.org/) identifiers. The workspace has a
   single version (`[workspace.package] version` in the root `Cargo.toml`) that
   all crates inherit, so they stay consistent.
-- Before 1.0, any release may contain breaking changes. Each milestone is a
-  minor version (v0.1, v0.2, …);
-  fix-only releases between milestones bump the patch version (v0.1.1).
-- `version` in `Cargo.toml` is the version being worked toward. Bump it to the
-  next milestone's version right after tagging.
+- Before 1.0, any release may contain breaking changes. Each milestone in
+  [docs/roadmap.md](docs/roadmap.md) is a minor version, named after its release
+  tag (v0.1.0, v0.2.0, …); fix-only releases between milestones bump the patch
+  version (v0.1.1).
+- `version` in `Cargo.toml` is the last released version. A maintainer bumps
+  it in the PR that prepares a release, not before.
 - A release is an annotated Git tag `vX.Y.Z` on `main`
   (`git tag -a v0.1.0 -m "syspm 0.1.0"`), created by a maintainer when a
   milestone's issues are closed and its exit criterion is met. A tag is not a
   binary distribution; no binaries are published yet.
-- No automated version bumps, changelog generation, or publishing yet; crates
-  are `publish = false`. Later, Conventional Commit history on `main` can drive
-  `cog bump` and `cog changelog`. That will be adopted deliberately.
+- Both crates are published to crates.io by a maintainer, by hand, from a
+  release tag. No version bumps, changelog generation, or publishing are
+  automated yet. Later, Conventional Commit history on `main` can drive
+  `cog bump` and `cog changelog`. That will be adopted deliberately; see
+  [docs/roadmap.md](docs/roadmap.md).
 
 ## License
 
