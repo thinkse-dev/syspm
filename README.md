@@ -101,7 +101,8 @@ Details: [docs/roadmap.md](docs/roadmap.md).
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md).
+See [CONTRIBUTING.md](CONTRIBUTING.md). AI coding agents should also read
+[AGENTS.md](AGENTS.md).
 
 ## Licensing
 
