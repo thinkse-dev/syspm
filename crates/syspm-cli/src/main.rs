@@ -57,7 +57,7 @@ fn inspect(path: &Path) -> anyhow::Result<()> {
     } else {
         path.to_path_buf()
     };
-    let manifest = syspm_core::read_project(&manifest_path)?;
+    let manifest = syspm_core::read_manifest(&manifest_path)?;
     println!("Project: {}", manifest.name);
     println!("Version: {}", manifest.version);
     println!("Declared usages: {}", manifest.usage.len());

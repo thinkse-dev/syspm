@@ -15,3 +15,6 @@ description = "Core library for syspm, a SysML v2 and KerML package manager (int
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
