@@ -105,6 +105,10 @@ not in anticipation.
 | `.project-lock.json`    | **Planned**            | Package manager       | Exact, deterministic result of resolution, pinning the bytes of every package. Not hand-edited                                    |
 | `syspm.toml`            | **Proposed, optional** | User                  | syspm-specific settings only (for example cache settings). Must never duplicate or override what `.project.json` declares         |
 
+How `.project.json` and `.meta.json` are found, read and validated is
+specified in [specs/project-metadata.md](specs/project-metadata.md); the code
+doesn't implement all of it yet.
+
 The sources and lock files use tool-neutral formats, so that another tool can
 read them and reproduce a result. Their formats will be specified in
 `docs/specs/` before they are implemented. `syspm.toml` holds nothing another
