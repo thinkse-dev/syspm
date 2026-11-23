@@ -1,13 +1,16 @@
-//! `.project.json`: what it contains and how it's read.
+//! `.project.json` and `.meta.json`: what they contain and how they're read.
 //!
 //! The rules are in docs/specs/project-metadata.md, sections 1 and 2.
 
 use serde::de::value::MapAccessDeserializer;
-use serde::de::{MapAccess, Visitor};
+use serde::de::{self, MapAccess, Visitor};
 use serde::{Deserialize, Deserializer};
+use std::collections::BTreeMap;
+use std::collections::btree_map::Entry;
 use std::fmt;
 use std::fs;
 use std::io;
+use std::marker::PhantomData;
 use std::path::{Path, PathBuf};
 
 /// Implements `Deserialize` for a struct so that it only accepts a JSON object.
@@ -83,6 +86,47 @@ pub struct ProjectUsage {
 
 deserialize_from_object!(ProjectUsage, "a project usage (a JSON object)");
 
+/// The contents of `.meta.json`: the properties in KerML 1.0 Table 13, as the normative schema
+/// (`KerML-Model-Interchange.json`, `$defs/Meta`) defines them.
+///
+/// Reading only checks JSON structure and types. Properties the schema doesn't define are
+/// accepted and ignored for now. The maps are sorted by key, so they iterate in the same order
+/// whatever the order in the file.
+#[derive(Debug, Deserialize)]
+#[serde(remote = "Self")]
+pub struct ProjectMetadata {
+    /// Maps the name of each top-level element in the project's root namespaces to the model
+    /// file that holds it. Short names count as names. Paths are relative to the project root
+    /// and use `/`.
+    #[serde(deserialize_with = "unique_keys")]
+    pub index: BTreeMap<String, String>,
+    /// When this file was created, not when the project was. Validation checks that it's an
+    /// RFC 3339 `date-time`.
+    pub created: String,
+    #[serde(default, deserialize_with = "non_null")]
+    pub metamodel: Option<String>,
+    #[serde(default, rename = "includesDerived", deserialize_with = "non_null")]
+    pub includes_derived: Option<bool>,
+    #[serde(default, rename = "includesImplied", deserialize_with = "non_null")]
+    pub includes_implied: Option<bool>,
+    /// Maps model file paths to their checksums. One checksum per file, as the schema has it,
+    /// not a list as the text of Table 13 says.
+    #[serde(default, deserialize_with = "unique_keys")]
+    pub checksum: BTreeMap<String, Checksum>,
+}
+
+deserialize_from_object!(ProjectMetadata, "project metadata (a JSON object)");
+
+/// The checksum of one model file.
+#[derive(Debug, Deserialize)]
+#[serde(remote = "Self")]
+pub struct Checksum {
+    pub value: String,
+    pub algorithm: String,
+}
+
+deserialize_from_object!(Checksum, "a checksum (a JSON object)");
+
 /// Reads an optional property that, when present, must be a `T`.
 ///
 /// Serde would read `null` as `None`, but the schema gives these properties a type such as
@@ -94,6 +138,44 @@ where
     T: Deserialize<'de>,
 {
     T::deserialize(deserializer).map(Some)
+}
+
+/// Reads a JSON object into a map and rejects a key that appears twice.
+///
+/// Serde's own map reader keeps the last value. Struct fields don't need this, because the
+/// derive already rejects a repeated field.
+fn unique_keys<'de, D, V>(deserializer: D) -> Result<BTreeMap<String, V>, D::Error>
+where
+    D: Deserializer<'de>,
+    V: Deserialize<'de>,
+{
+    struct UniqueKeysVisitor<V>(PhantomData<V>);
+
+    impl<'de, V: Deserialize<'de>> Visitor<'de> for UniqueKeysVisitor<V> {
+        type Value = BTreeMap<String, V>;
+
+        fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+            formatter.write_str("a JSON object")
+        }
+
+        fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> Result<Self::Value, A::Error> {
+            let mut entries = BTreeMap::new();
+            while let Some((key, value)) = map.next_entry::<String, V>()? {
+                match entries.entry(key) {
+                    Entry::Vacant(entry) => {
+                        entry.insert(value);
+                    }
+                    Entry::Occupied(entry) => {
+                        let key = entry.key();
+                        return Err(de::Error::custom(format!("duplicate key `{key}`")));
+                    }
+                }
+            }
+            Ok(entries)
+        }
+    }
+
+    deserializer.deserialize_map(UniqueKeysVisitor(PhantomData))
 }
 
 /// A project manifest couldn't be read.
@@ -111,6 +193,21 @@ pub enum ReadManifestError {
     },
 }
 
+/// Project metadata couldn't be read.
+///
+/// The message names the file. The cause is in [`std::error::Error::source`] and isn't repeated
+/// in the message.
+#[derive(Debug, thiserror::Error)]
+pub enum ReadMetadataError {
+    #[error("cannot read project metadata {}", path.display())]
+    Io { path: PathBuf, source: io::Error },
+    #[error("invalid project metadata {}", path.display())]
+    Parse {
+        path: PathBuf,
+        source: serde_json::Error,
+    },
+}
+
 /// Reads a project manifest.
 ///
 /// A symbolic link, or anything else that isn't a regular file, is an I/O error. The same property
@@ -121,6 +218,21 @@ pub fn read_manifest(path: &Path) -> Result<ProjectManifest, ReadManifestError> 
         source,
     })?;
     serde_json::from_str(&contents).map_err(|source| ReadManifestError::Parse {
+        path: path.to_path_buf(),
+        source,
+    })
+}
+
+/// Reads project metadata (`.meta.json`).
+///
+/// A symbolic link, or anything else that isn't a regular file, is an I/O error. A key that
+/// appears twice in one object is a parse error.
+pub fn read_metadata(path: &Path) -> Result<ProjectMetadata, ReadMetadataError> {
+    let contents = read_regular_file(path).map_err(|source| ReadMetadataError::Io {
+        path: path.to_path_buf(),
+        source,
+    })?;
+    serde_json::from_str(&contents).map_err(|source| ReadMetadataError::Parse {
         path: path.to_path_buf(),
         source,
     })
