@@ -122,20 +122,17 @@ cargo run -p syspm -- --help
 
 ## Proposing design changes
 
-Open an issue before you start on a change to behavior, file formats, or the
-architecture. Describe the problem, the change you propose, and the
-alternatives you considered. Small fixes and changes that follow an existing
-specification don't need one.
+If you want to change behavior, a file format, or the architecture, open an
+issue first and say what problem you're solving and what you have in mind.
+Small fixes, and changes that just follow an existing spec, don't need one.
 
-- **Normative rules go in `docs/specs/`:** anything another implementation
-  would need to reproduce syspm's results, such as a file format, a digest, or
-  an error code. Each rule has an identifier that tests can refer to. Change
-  the specification in the same PR as the code, or before it.
-- **Architecture goes in [docs/architecture.md](docs/architecture.md):** crate
-  boundaries, design rules, and deliberately deferred decisions. Moving an item
-  out of "Deliberately deferred decisions" needs an issue first.
-- **Plans go in [docs/roadmap.md](docs/roadmap.md)** and the GitHub
-  Milestones.
+Rules that another implementation would need in order to get the same results
+(file formats, digests, error codes) belong in `docs/specs/`, each with an
+identifier the tests can point to. Update the spec in the same PR as the code,
+or before it. Crate boundaries and design rules live in
+[docs/architecture.md](docs/architecture.md); if you want to settle something
+listed there as deferred, raise it in an issue first. The plan itself is in
+[docs/roadmap.md](docs/roadmap.md) and the milestones.
 
 ## Dependency policy
 
