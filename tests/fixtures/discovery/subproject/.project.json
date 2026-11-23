@@ -1,0 +1,5 @@
+{
+  "name": "subproject",
+  "version": "0.1.0",
+  "description": "Nested project: a separate project with its own model files"
+}
