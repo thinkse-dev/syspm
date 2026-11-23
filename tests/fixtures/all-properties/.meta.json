@@ -1,0 +1,20 @@
+{
+  "index": {
+    "AllPropertiesExtras": "Extras.sysml",
+    "AllProperties": "AllProperties.sysml"
+  },
+  "created": "2026-10-30T12:00:00Z",
+  "metamodel": "https://www.omg.org/spec/SysML/20250201",
+  "includesDerived": false,
+  "includesImplied": true,
+  "checksum": {
+    "Extras.sysml": {
+      "value": "113c23f577e03e402ee7a0629c9d513ad0684c24de2f4a34f12814a0538e44a9",
+      "algorithm": "SHA256"
+    },
+    "AllProperties.sysml": {
+      "value": "8713525aca93f849344d0e802f44805f3fd56b1c43ca2db03512c17535e8f76f",
+      "algorithm": "SHA256"
+    }
+  }
+}

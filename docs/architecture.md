@@ -88,9 +88,10 @@ match; the directory is `crates/syspm-cli` to make its role explicit.
   tools.
 - Exposes typed errors (`thiserror`, for example `ReadManifestError`) rather
   than printing; the CLI adds context and reports them with `anyhow`.
-- Reads every Table 12 property of `.project.json` (`read_manifest`), checking
-  JSON structure and types only. It does not validate the manifest against the
-  rest of the spec yet.
+- Reads every Table 12 property of `.project.json` (`read_manifest`) and every
+  Table 13 property of `.meta.json` (`read_metadata`), checking JSON structure
+  and types only. It doesn't validate either file against the rest of the spec
+  yet.
 
 New abstractions are added to `syspm-core` when a concrete command needs them,
 not in anticipation.
@@ -100,7 +101,7 @@ not in anticipation.
 | File                    | Status                 | Owner                 | Purpose                                                                                                                           |
 | ----------------------- | ---------------------- | --------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
 | `.project.json`         | Standard, read         | User / modeling tools | Project identity and declared dependencies (`usage`)                                                                              |
-| `.meta.json`            | Standard, planned      | Tools                 | Standard interchange metadata                                                                                                     |
+| `.meta.json`            | Standard, read         | Tools                 | Standard interchange metadata                                                                                                     |
 | `.project-sources.json` | **Planned**            | User                  | Shared resolution intent: which projects are roots, where each package comes from, and the selected standard-library provider set |
 | `.project-lock.json`    | **Planned**            | Package manager       | Exact, deterministic result of resolution, pinning the bytes of every package. Not hand-edited                                    |
 | `syspm.toml`            | **Proposed, optional** | User                  | syspm-specific settings only (for example cache settings). Must never duplicate or override what `.project.json` declares         |
@@ -163,8 +164,8 @@ Releases, their order, and their exit checks are in [roadmap.md](roadmap.md).
 
 ## Known constraints
 
-- `.project.json` is read without validation against the standard, and
-  `.meta.json` is not read yet.
+- `.project.json` and `.meta.json` are read without validation against the
+  standard.
 - No network access, background service, or database is used.
 - The only supported toolchain is the pinned one (see
   [CONTRIBUTING.md](../CONTRIBUTING.md)).
