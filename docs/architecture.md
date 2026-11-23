@@ -92,6 +92,10 @@ match; the directory is `crates/syspm-cli` to make its role explicit.
   Table 13 property of `.meta.json` (`read_metadata`), checking JSON structure
   and types only. It doesn't validate either file against the rest of the spec
   yet.
+- Finds the project root from any path inside the project
+  (`find_project_root`), and lists its `.sysml` and `.kerml` files in a stable
+  order (`list_model_files`, or `scan_model_files` to carry on past unreadable
+  directories).
 
 New abstractions are added to `syspm-core` when a concrete command needs them,
 not in anticipation.
