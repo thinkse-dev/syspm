@@ -283,7 +283,7 @@ Examples:
 ```text
 feat(cli): add inspect command
 fix(core): handle missing project manifest
-refactor(core)!: return typed errors from read_project
+refactor(core)!: return typed errors from read_manifest
 docs: update architecture guide
 ```
 

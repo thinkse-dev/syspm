@@ -86,11 +86,11 @@ match; the directory is `crates/syspm-cli` to make its role explicit.
 
 - Reusable library for any front end: the CLI, editor integrations, or other
   tools.
-- Exposes typed errors (`thiserror`, for example `ReadProjectError`) rather
+- Exposes typed errors (`thiserror`, for example `ReadManifestError`) rather
   than printing; the CLI adds context and reports them with `anyhow`.
-- Currently reads the `name`, `version` and `usage` properties of
-  `.project.json` (`read_project`). It does not yet validate the manifest
-  against the standard.
+- Reads every Table 12 property of `.project.json` (`read_manifest`), checking
+  JSON structure and types only. It does not validate the manifest against the
+  rest of the spec yet.
 
 New abstractions are added to `syspm-core` when a concrete command needs them,
 not in anticipation.

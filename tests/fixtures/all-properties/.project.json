@@ -1,0 +1,18 @@
+{
+  "name": "all-properties",
+  "description": "Illustrative manifest fixture with every KerML 1.0 Table 12 property",
+  "version": "1.0.0",
+  "license": "Apache-2.0 OR MIT",
+  "maintainer": [
+    "Example Maintainer <maintainer@example.invalid>",
+    "Second Maintainer"
+  ],
+  "website": "https://example.invalid/all-properties",
+  "topic": ["fixture", "metadata"],
+  "usage": [
+    {
+      "resource": "https://example.invalid/common-interfaces.kpar",
+      "versionConstraint": "^0.1.0"
+    }
+  ]
+}
