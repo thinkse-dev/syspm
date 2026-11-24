@@ -1,0 +1,11 @@
+{
+  "name": "invalid-metadata",
+  "version": "0.1.0",
+  "description": "Illustrative project that breaks many validation rules at once",
+  "website": "not an IRI",
+  "usage": [
+    {
+      "resource": "relative/path.kpar"
+    }
+  ]
+}

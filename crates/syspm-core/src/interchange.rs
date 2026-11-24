@@ -14,6 +14,7 @@ use std::marker::PhantomData;
 use std::path::{Path, PathBuf};
 
 pub(crate) const PROJECT_MANIFEST: &str = ".project.json";
+pub(crate) const PROJECT_METADATA: &str = ".meta.json";
 
 /// Implements `Deserialize` for a struct so that it only accepts a JSON object.
 ///

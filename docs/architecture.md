@@ -90,8 +90,11 @@ match; the directory is `crates/syspm-cli` to make its role explicit.
   than printing; the CLI adds context and reports them with `anyhow`.
 - Reads every Table 12 property of `.project.json` (`read_manifest`) and every
   Table 13 property of `.meta.json` (`read_metadata`), checking JSON structure
-  and types only. It doesn't validate either file against the rest of the spec
-  yet.
+  and types only.
+- Validates both files against the spec and the files on disk
+  (`validate_manifest`, `validate_metadata`). It reports every problem at once
+  as a `Diagnostic` with a stable rule identifier and a severity, and verifies
+  `SHA256` checksums. Other checksum algorithms are reported as not verified.
 - Finds the project root from any path inside the project
   (`find_project_root`), and lists its `.sysml` and `.kerml` files in a stable
   order (`list_model_files`, or `scan_model_files` to carry on past unreadable
@@ -111,8 +114,7 @@ not in anticipation.
 | `syspm.toml`            | **Proposed, optional** | User                  | syspm-specific settings only (for example cache settings). Must never duplicate or override what `.project.json` declares         |
 
 How `.project.json` and `.meta.json` are found, read and validated is
-specified in [specs/project-metadata.md](specs/project-metadata.md); the code
-doesn't implement all of it yet.
+specified in [specs/project-metadata.md](specs/project-metadata.md).
 
 The sources and lock files use tool-neutral formats, so that another tool can
 read them and reproduce a result. Their formats will be specified in
@@ -168,8 +170,10 @@ Releases, their order, and their exit checks are in [roadmap.md](roadmap.md).
 
 ## Known constraints
 
-- `.project.json` and `.meta.json` are read without validation against the
-  standard.
+- Validation checks what the spec lists, not full conformance to the
+  interchange schema, and not that `index` names match the elements in each
+  file.
+- Of the checksum algorithms the standard allows, only `SHA256` is verified.
 - No network access, background service, or database is used.
 - The only supported toolchain is the pinned one (see
   [CONTRIBUTING.md](../CONTRIBUTING.md)).
