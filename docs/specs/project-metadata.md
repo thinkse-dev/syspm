@@ -95,11 +95,11 @@ A project is valid if it has no errors. Warnings are allowed, but see section 4.
 
 | Rule                             | Level   | When                                                           |
 | -------------------------------- | ------- | -------------------------------------------------------------- |
-| `project-website-iri`            | error   | `website` isn't an absolute IRI (RFC 3987)                     |
-| `project-usage-iri`              | error   | a usage `resource` isn't an absolute IRI                       |
+| `project-website-iri`            | error   | `website` isn't an IRI with a scheme (RFC 3987)                |
+| `project-usage-iri`              | error   | a usage `resource` isn't an IRI with a scheme                  |
 | `meta-missing`                   | warning | there's no `.meta.json`                                        |
 | `meta-created-format`            | error   | `created` isn't an RFC 3339 `date-time`                        |
-| `meta-metamodel-iri`             | error   | `metamodel` isn't an absolute IRI                              |
+| `meta-metamodel-iri`             | error   | `metamodel` isn't an IRI with a scheme                         |
 | `index-path-syntax`              | error   | an `index` path fails section 4.2                              |
 | `index-path-boundary`            | error   | an `index` path goes through a link or into a nested project   |
 | `index-file-missing`             | error   | an `index` path doesn't lead to a regular file                 |
@@ -112,6 +112,8 @@ A project is valid if it has no errors. Warnings are allowed, but see section 4.
 | `checksum-value-invalid`         | error   | the value isn't hex of the right length                        |
 | `checksum-mismatch`              | error   | the file doesn't match its checksum                            |
 | `file-unreadable`                | error   | a file or directory that had to be read couldn't be            |
+
+For the three IRI rules, a value must be a full RFC 3987 IRI that starts with a scheme, such as `https:`. Relative references are rejected. A fragment is allowed, so this is looser than RFC 3987's `absolute-IRI`.
 
 The warnings are warnings because the standard makes those things optional. `.meta.json` is optional and so is listing every file in `index`. Table 13 also says checksums may cover "some or all" files, so a file without one isn't reported.
 

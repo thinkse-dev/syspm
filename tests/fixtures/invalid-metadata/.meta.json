@@ -1,0 +1,15 @@
+{
+  "index": {
+    "Indexed": "Indexed.sysml",
+    "Missing": "Missing.sysml",
+    "Outside": "../Outside.sysml"
+  },
+  "created": "2026-02-30T12:00:00Z",
+  "metamodel": "not an IRI",
+  "checksum": {
+    "Indexed.sysml": {
+      "value": "0000000000000000000000000000000000000000000000000000000000000000",
+      "algorithm": "SHA256"
+    }
+  }
+}
