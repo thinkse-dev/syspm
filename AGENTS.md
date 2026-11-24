@@ -16,9 +16,9 @@ interchange formats and does not replace them. In repository content, describe
 syspm by its own capabilities; don't name or compare it with other package
 managers or tools.
 
-Status: early development. `syspm inspect` finds a project and reports its
-metadata, model files and validation findings; `init`, `install` and `update`
-are stubs that exit 1. The plan is in [docs/roadmap.md](docs/roadmap.md).
+Status: early development. `syspm init` creates a project's `.project.json`,
+and `syspm inspect` finds a project and reports its metadata, model files and
+validation findings; `install` and `update` are stubs that exit 1. The plan is in [docs/roadmap.md](docs/roadmap.md).
 
 ## Architecture
 

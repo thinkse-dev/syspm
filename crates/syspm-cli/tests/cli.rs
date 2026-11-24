@@ -130,7 +130,7 @@ fn unknown_flag_is_usage_error_on_stderr() {
 
 #[test]
 fn unimplemented_commands_fail_clearly() {
-    for command in ["init", "install", "update"] {
+    for command in ["install", "update"] {
         let output = syspm(&[command]);
         assert_eq!(output.status.code(), Some(1), "`{command}` exit status");
         assert!(stdout(&output).is_empty());
@@ -139,6 +139,147 @@ fn unimplemented_commands_fail_clearly() {
             format!("syspm: `{command}` is not implemented yet")
         );
     }
+}
+
+#[test]
+fn init_help_documents_defaults() {
+    let output = syspm(&["init", "--help"]);
+
+    assert!(output.status.success(), "{}", stderr(&output));
+    let text = stdout(&output);
+    assert!(text.contains("[default: .]"), "{text}");
+    assert!(text.contains("[default: 0.1.0]"), "{text}");
+    assert!(text.contains("[default: the directory's name]"), "{text}");
+}
+
+#[test]
+fn init_creates_valid_project() {
+    let dir = tempfile::tempdir().expect("create temp dir");
+    let project = dir.path().join("my-model");
+    fs::create_dir(&project).unwrap();
+
+    let output = syspm_in(&project, &["init"]);
+
+    assert!(output.status.success(), "{}", stderr(&output));
+    assert!(stdout(&output).contains(".project.json"));
+    let manifest = syspm_core::read_manifest(&project.join(".project.json")).unwrap();
+    assert_eq!(manifest.name, "my-model");
+    assert_eq!(manifest.version, "0.1.0");
+    assert!(syspm_core::validate_manifest(&manifest).is_empty());
+    assert_eq!(fs::read_dir(&project).unwrap().count(), 1);
+}
+
+#[test]
+fn init_accepts_path_and_flags() {
+    let dir = tempfile::tempdir().expect("create temp dir");
+
+    let output = syspm(&[
+        "init",
+        dir.path().to_str().expect("temp path is UTF-8"),
+        "--name",
+        "custom",
+        "--version",
+        "2.0.0",
+    ]);
+
+    assert!(output.status.success(), "{}", stderr(&output));
+    let manifest = syspm_core::read_manifest(&dir.path().join(".project.json")).unwrap();
+    assert_eq!(manifest.name, "custom");
+    assert_eq!(manifest.version, "2.0.0");
+}
+
+#[test]
+fn init_rejects_empty_name() {
+    let dir = tempfile::tempdir().expect("create temp dir");
+
+    let output = syspm_in(dir.path(), &["init", "--name", ""]);
+
+    assert_eq!(output.status.code(), Some(1));
+    assert_eq!(stderr(&output).trim(), "syspm: project name is empty");
+    assert!(!dir.path().join(".project.json").exists());
+}
+
+#[cfg(unix)]
+#[test]
+fn init_without_usable_directory_name_asks_for_name() {
+    let output = syspm(&["init", "/"]);
+
+    assert_eq!(output.status.code(), Some(1));
+    let text = stderr(&output);
+    assert!(text.contains("--name"), "{text}");
+}
+
+#[test]
+fn init_keeps_existing_manifest() {
+    let dir = tempfile::tempdir().expect("create temp dir");
+    let manifest = dir.path().join(".project.json");
+    fs::write(&manifest, "original").unwrap();
+
+    let output = syspm_in(dir.path(), &["init"]);
+
+    assert_eq!(output.status.code(), Some(1));
+    assert!(stdout(&output).is_empty());
+    let text = stderr(&output);
+    assert!(text.contains(".project.json"), "{text}");
+    assert_eq!(fs::read_to_string(&manifest).unwrap(), "original");
+}
+
+#[test]
+fn init_missing_directory_fails() {
+    let dir = tempfile::tempdir().expect("create temp dir");
+    let missing = dir.path().join("missing");
+    let missing = missing.to_str().expect("temp path is UTF-8");
+
+    let output = syspm(&["init", missing]);
+
+    assert_eq!(output.status.code(), Some(1));
+    assert!(stdout(&output).is_empty());
+    let text = stderr(&output);
+    assert!(text.contains(missing), "{text}");
+}
+
+#[cfg(unix)]
+#[test]
+fn init_unwritable_directory_fails() {
+    use std::os::unix::fs::PermissionsExt;
+    let dir = tempfile::tempdir().expect("create temp dir");
+    let locked = dir.path().join("locked");
+    fs::create_dir(&locked).unwrap();
+    fs::set_permissions(&locked, fs::Permissions::from_mode(0o555)).unwrap();
+    let writable = fs::write(locked.join("probe"), "").is_ok();
+    let locked_path = locked.to_str().expect("temp path is UTF-8");
+    let output = syspm(&["init", locked_path]);
+    fs::set_permissions(&locked, fs::Permissions::from_mode(0o755)).unwrap();
+    if writable {
+        return; // Running as root: permissions are not enforced.
+    }
+
+    assert_eq!(output.status.code(), Some(1));
+    let text = stderr(&output);
+    assert!(text.contains(locked_path), "{text}");
+    assert!(!locked.join(".project.json").exists());
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn init_removes_partial_manifest_when_write_fails() {
+    let dir = tempfile::tempdir().expect("create temp dir");
+
+    // A file size limit of zero makes the write fail after the file is created. Ignoring SIGXFSZ
+    // makes the write return an error instead of killing the process, and the setting carries
+    // over to `syspm`.
+    let output = Command::new("sh")
+        .arg("-c")
+        .arg(r#"trap '' XFSZ; ulimit -f 0; exec "$0" init --name model"#)
+        .arg(env!("CARGO_BIN_EXE_syspm"))
+        .current_dir(dir.path())
+        .output()
+        .expect("failed to run syspm binary");
+
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    let text = stderr(&output);
+    assert!(text.contains("cannot write project manifest"), "{text}");
+    assert!(!dir.path().join(".project.json").exists());
 }
 
 #[test]
@@ -315,6 +456,17 @@ fn inspect_lists_usages_with_optional_constraints() {
             dir.display()
         )
     );
+}
+
+#[test]
+fn inspect_accepts_initialized_project() {
+    let dir = tempfile::tempdir().expect("create temp dir");
+
+    let init = syspm_in(dir.path(), &["init"]);
+    assert!(init.status.success(), "{}", stderr(&init));
+
+    let inspect = syspm_in(dir.path(), &["inspect"]);
+    assert!(inspect.status.success(), "{}", stderr(&inspect));
 }
 
 #[test]

@@ -1,8 +1,10 @@
-use anyhow::bail;
+use anyhow::{anyhow, bail};
 use clap::{Parser, Subcommand};
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
-use syspm_core::{MetadataStatus, ModelFileScan, ProjectManifest, ProjectReport, Severity};
+use syspm_core::{
+    InitError, MetadataStatus, ModelFileScan, ProjectManifest, ProjectReport, Severity,
+};
 
 /// Package manager for SysML v2 and KerML projects (early development).
 #[derive(Debug, Parser)]
@@ -14,8 +16,18 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum Commands {
-    /// Initialize a SysML v2 project (not yet implemented)
-    Init,
+    /// Create a .project.json in a directory
+    Init {
+        /// Directory to initialize
+        #[arg(default_value = ".")]
+        path: PathBuf,
+        /// Project name [default: the directory's name]
+        #[arg(long)]
+        name: Option<String>,
+        /// Project version
+        #[arg(long, default_value = "0.1.0")]
+        version: String,
+    },
     /// Report a project's metadata, model files, and validation results
     Inspect {
         /// File or directory in the project; the nearest .project.json at or above it is used
@@ -31,7 +43,11 @@ enum Commands {
 fn main() -> ExitCode {
     let cli = Cli::parse();
     let result = match cli.command {
-        Commands::Init => not_implemented("init"),
+        Commands::Init {
+            path,
+            name,
+            version,
+        } => init(&path, name.as_deref(), &version),
         Commands::Inspect { path } => inspect(&path),
         Commands::Install => not_implemented("install"),
         Commands::Update => not_implemented("update"),
@@ -49,6 +65,17 @@ fn main() -> ExitCode {
 
 fn not_implemented(command: &str) -> anyhow::Result<()> {
     bail!("`{command}` is not implemented yet")
+}
+
+fn init(path: &Path, name: Option<&str>, version: &str) -> anyhow::Result<()> {
+    let manifest = syspm_core::init_project(path, name, version).map_err(|error| match error {
+        // The flag is a CLI concept, so core's message cannot mention it.
+        InitError::NoDefaultName { .. } => anyhow!("{error}; use --name"),
+        error => error.into(),
+    })?;
+    println!("Created {}", manifest.display());
+
+    Ok(())
 }
 
 fn inspect(path: &Path) -> anyhow::Result<()> {

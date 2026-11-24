@@ -79,8 +79,14 @@ directory) and prints its manifest, its metadata, its model files and every
 validation finding. It exits `0` when there are no errors (warnings are
 allowed), and `1` on an error finding or a `.meta.json` that can't be read.
 When `.meta.json` can't be read, or some directories can't be listed, it still
-prints what it could find and marks those parts as partial. `init`, `install`
-and `update` exit `1` with "not implemented yet".
+prints what it could find and marks those parts as partial.
+
+`init [PATH]` creates a `.project.json` in `PATH` (default: the current
+directory) with a name (`--name`, default: the directory's name) and a version
+(`--version`, default: `0.1.0`). It never overwrites anything already named
+`.project.json`, even a broken symbolic link, and it creates no `.meta.json`.
+
+`install` and `update` exit `1` with "not implemented yet".
 
 The package is named `syspm` so that `cargo run -p syspm` and the binary name
 match; the directory is `crates/syspm-cli` to make its role explicit.
