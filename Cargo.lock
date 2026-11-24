@@ -387,6 +387,7 @@ dependencies = [
  "anyhow",
  "clap",
  "syspm-core",
+ "tempfile",
 ]
 
 [[package]]

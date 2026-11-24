@@ -1,3 +1,4 @@
+use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 
@@ -8,10 +9,22 @@ fn syspm(args: &[&str]) -> Output {
         .expect("failed to run syspm binary")
 }
 
+fn syspm_in(dir: &Path, args: &[&str]) -> Output {
+    Command::new(env!("CARGO_BIN_EXE_syspm"))
+        .args(args)
+        .current_dir(dir)
+        .output()
+        .expect("failed to run syspm binary")
+}
+
 fn fixture(name: &str) -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../tests/fixtures")
         .join(name)
+}
+
+fn canonical(path: &Path) -> PathBuf {
+    fs::canonicalize(path).expect("fixture directory exists")
 }
 
 fn stdout(output: &Output) -> String {
@@ -20,6 +33,49 @@ fn stdout(output: &Output) -> String {
 
 fn stderr(output: &Output) -> String {
     String::from_utf8_lossy(&output.stderr).into_owned()
+}
+
+/// Creates a file, along with any missing parent directories.
+fn write_file(path: &Path, contents: &str) {
+    fs::create_dir_all(path.parent().unwrap()).unwrap();
+    fs::write(path, contents).unwrap();
+}
+
+/// Creates a project in `root`, with a model file in the `models` subdirectory.
+fn write_project(root: &Path) {
+    write_file(
+        &root.join(".project.json"),
+        r#"{"name": "model", "version": "0.1.0"}"#,
+    );
+    write_file(&root.join("models/A.sysml"), "package A;\n");
+}
+
+/// Creates a project whose `.project.json` is a symbolic link to another project's valid manifest.
+/// Returns the project, then the other project, which must stay alive for the link to stay valid.
+#[cfg(unix)]
+fn project_with_linked_manifest() -> (tempfile::TempDir, tempfile::TempDir) {
+    let outside = tempfile::tempdir().expect("create temp dir");
+    write_project(outside.path());
+    let dir = tempfile::tempdir().expect("create temp dir");
+    std::os::unix::fs::symlink(
+        outside.path().join(".project.json"),
+        dir.path().join(".project.json"),
+    )
+    .expect("create symbolic link");
+    (dir, outside)
+}
+
+/// Asserts that reading a manifest failed the regular-file check, with nothing reported.
+#[cfg(unix)]
+fn assert_manifest_rejected(output: &Output) {
+    assert_eq!(output.status.code(), Some(1));
+    assert!(stdout(output).is_empty());
+    let errors = stderr(output);
+    assert!(
+        errors.contains("syspm: cannot read project manifest"),
+        "{errors}"
+    );
+    assert!(errors.contains("not a regular file"), "{errors}");
 }
 
 #[test]
@@ -86,28 +142,50 @@ fn unimplemented_commands_fail_clearly() {
 }
 
 #[test]
-fn inspect_reads_project_directory() {
-    let dir = fixture("common-interfaces");
-    let output = syspm(&["inspect", dir.to_str().expect("fixture path is UTF-8")]);
+fn inspect_defaults_to_current_directory() {
+    let dir = canonical(&fixture("discovery/models/deep"));
+    let root = canonical(&fixture("discovery"));
+    let output = syspm_in(&dir, &["inspect"]);
     assert!(output.status.success(), "{}", stderr(&output));
     let text = stdout(&output);
-    assert!(text.contains("Project: common-interfaces"), "{text}");
-    assert!(text.contains("Version: 0.1.0"), "{text}");
-    assert!(text.contains("Declared usages: 0"), "{text}");
+    assert!(
+        text.starts_with(&format!("Root: {}\n", root.display())),
+        "{text}"
+    );
 }
 
 #[test]
-fn inspect_lists_usages_with_optional_constraints() {
-    let dir = fixture("controller");
+fn inspect_discovers_project_from_nested_directory() {
+    let root = canonical(&fixture("discovery"));
+    let dir = fixture("discovery/models/deep");
+
     let output = syspm(&["inspect", dir.to_str().expect("fixture path is UTF-8")]);
+
     assert!(output.status.success(), "{}", stderr(&output));
+    let errors = stderr(&output);
+    assert!(errors.is_empty(), "{errors}");
     assert_eq!(
         stdout(&output),
-        "Project: controller\n\
-         Version: 0.2.0\n\
-         Declared usages: 2\n  \
-         https://example.invalid/common-interfaces.kpar (^0.1.0)\n  \
-         https://example.invalid/units.kpar\n"
+        format!(
+            "Root: {}\n\
+             Project: discovery\n\
+             Version: 0.1.0\n\
+             Description: Illustrative project tree for project discovery tests\n\
+             Declared usages: 0\n\
+             Metadata:\n  \
+             Created: 2026-10-31T12:00:00Z\n  \
+             Index entries: 1\n\
+             Model files: 4\n  \
+             Core.kerml\n  \
+             Root.sysml\n  \
+             models/Nested.sysml\n  \
+             models/deep/Deep.kerml\n\
+             Validation: 0 errors, 3 warnings\n  \
+             warning[index-unreferenced-file] Core.kerml: model file is not referred to by the index\n  \
+             warning[index-unreferenced-file] models/Nested.sysml: model file is not referred to by the index\n  \
+             warning[index-unreferenced-file] models/deep/Deep.kerml: model file is not referred to by the index\n",
+            root.display()
+        )
     );
 }
 
@@ -120,29 +198,131 @@ fn inspect_accepts_manifest_file_path() {
 }
 
 #[test]
-fn inspect_missing_manifest_fails_with_path() {
-    let dir = fixture("does-not-exist");
-    let output = syspm(&["inspect", dir.to_str().expect("fixture path is UTF-8")]);
+fn inspect_accepts_relative_manifest_path() {
+    let output = syspm_in(&fixture("common-interfaces"), &["inspect", ".project.json"]);
+
+    assert!(output.status.success(), "{}", stderr(&output));
+    assert!(stdout(&output).contains("Project: common-interfaces"));
+}
+
+#[test]
+fn inspect_missing_path_fails_naming_path() {
+    let temp = tempfile::tempdir().expect("create temp dir");
+    let dir = temp.path().join("does-not-exist");
+    let output = syspm(&["inspect", dir.to_str().expect("temp path is UTF-8")]);
     assert_eq!(output.status.code(), Some(1));
     assert!(stdout(&output).is_empty());
     let text = stderr(&output);
-    assert!(
-        text.starts_with("syspm: cannot read project manifest"),
-        "{text}"
-    );
-    assert!(text.contains("does-not-exist"), "{text}");
+    let expected = format!("syspm: cannot read {}", dir.display());
+    assert!(text.starts_with(&expected), "{text}");
     // The OS-level cause is appended once, after the context.
     assert_eq!(text.matches("os error").count(), 1, "{text}");
 }
 
 #[test]
-fn inspect_invalid_manifest_reports_parse_cause() {
-    let dir = std::env::temp_dir().join(format!("syspm-cli-test-{}", std::process::id()));
-    std::fs::create_dir_all(&dir).expect("create temp dir");
-    std::fs::write(dir.join(".project.json"), r#"{"name": "x"}"#).expect("write manifest");
+fn inspect_outside_any_project_fails() {
+    let dir = tempfile::tempdir().expect("create temp dir");
+    let output = syspm(&["inspect", dir.path().to_str().expect("temp path is UTF-8")]);
 
-    let output = syspm(&["inspect", dir.to_str().expect("temp path is UTF-8")]);
-    std::fs::remove_dir_all(&dir).expect("remove temp dir");
+    assert_eq!(output.status.code(), Some(1));
+    assert!(stdout(&output).is_empty());
+    let text = stderr(&output);
+    assert!(
+        text.starts_with("syspm: no project found at or above "),
+        "{text}"
+    );
+}
+
+#[test]
+fn inspect_reads_project_directory() {
+    let root = canonical(&fixture("common-interfaces"));
+    let output = syspm(&["inspect", root.to_str().expect("fixture path is UTF-8")]);
+    assert!(output.status.success(), "{}", stderr(&output));
+    assert_eq!(
+        stdout(&output),
+        format!(
+            "Root: {}\n\
+             Project: common-interfaces\n\
+             Version: 0.1.0\n\
+             Description: Illustrative manifest fixture; not a complete interchange project\n\
+             Declared usages: 0\n\
+             Metadata:\n  \
+             Created: 2026-10-30T12:00:00Z\n  \
+             Index entries: 1\n\
+             Model files: 1\n  \
+             CommonInterfaces.sysml\n\
+             Validation: 0 errors, 0 warnings\n",
+            root.display()
+        )
+    );
+}
+
+#[test]
+fn inspect_reports_every_manifest_property() {
+    let root = canonical(&fixture("all-properties"));
+    let output = syspm(&["inspect", root.to_str().expect("fixture path is UTF-8")]);
+
+    assert!(output.status.success(), "{}", stderr(&output));
+    let errors = stderr(&output);
+    assert!(errors.is_empty(), "{errors}");
+    assert_eq!(
+        stdout(&output),
+        format!(
+            "Root: {}\n\
+             Project: all-properties\n\
+             Version: 1.0.0\n\
+             Description: Illustrative manifest fixture with every KerML 1.0 Table 12 property\n\
+             License: Apache-2.0 OR MIT\n\
+             Maintainers: Example Maintainer <maintainer@example.invalid>, Second Maintainer\n\
+             Website: https://example.invalid/all-properties\n\
+             Topics: fixture, metadata\n\
+             Declared usages: 1\n  \
+             https://example.invalid/common-interfaces.kpar (^0.1.0)\n\
+             Metadata:\n  \
+             Created: 2026-10-30T12:00:00Z\n  \
+             Metamodel: https://www.omg.org/spec/SysML/20250201\n  \
+             Includes derived: false\n  \
+             Includes implied: true\n  \
+             Index entries: 2\n\
+             Model files: 2\n  \
+             AllProperties.sysml\n  \
+             Extras.sysml\n\
+             Validation: 0 errors, 0 warnings\n",
+            root.display()
+        )
+    );
+}
+
+#[test]
+fn inspect_lists_usages_with_optional_constraints() {
+    let dir = canonical(&fixture("controller"));
+    let output = syspm(&["inspect", dir.to_str().expect("fixture path is UTF-8")]);
+    assert!(output.status.success(), "{}", stderr(&output));
+    assert_eq!(
+        stdout(&output),
+        format!(
+            "Root: {}\n\
+             Project: controller\n\
+             Version: 0.2.0\n\
+             Description: Illustrative manifest fixture with usages; not a complete interchange project\n\
+             Declared usages: 2\n  \
+             https://example.invalid/common-interfaces.kpar (^0.1.0)\n  \
+             https://example.invalid/units.kpar\n\
+             Metadata: none\n\
+             Model files: 0\n\
+             Validation: 0 errors, 1 warning\n  \
+             warning[meta-missing] .meta.json: project has no metadata file\n",
+            dir.display()
+        )
+    );
+}
+
+#[test]
+fn inspect_invalid_manifest_reports_parse_cause() {
+    let dir = tempfile::tempdir().expect("create temp dir");
+    std::fs::write(dir.path().join(".project.json"), r#"{"name": "x"}"#).expect("write manifest");
+
+    let output = syspm(&["inspect", dir.path().to_str().expect("temp path is UTF-8")]);
 
     assert_eq!(output.status.code(), Some(1));
     assert!(stdout(&output).is_empty());
@@ -152,4 +332,113 @@ fn inspect_invalid_manifest_reports_parse_cause() {
         "{text}"
     );
     assert!(text.contains("missing field `version`"), "{text}");
+}
+
+#[cfg(unix)]
+#[test]
+fn inspect_broken_manifest_symlink_fails() {
+    use std::os::unix::fs::symlink;
+
+    let parent = tempfile::tempdir().unwrap();
+    write_project(parent.path());
+
+    let child = parent.path().join("child");
+    fs::create_dir(&child).unwrap();
+
+    symlink(child.join("non-existent"), child.join(".project.json")).unwrap();
+
+    let output = syspm_in(&child, &["inspect"]);
+    assert_eq!(output.status.code(), Some(1));
+    assert!(stdout(&output).is_empty());
+    let errors = stderr(&output);
+    assert!(
+        errors.starts_with("syspm: cannot read project manifest"),
+        "{errors}"
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn inspect_explicit_manifest_symlink_fails() {
+    let (dir, _outside) = project_with_linked_manifest();
+    let manifest = dir.path().join(".project.json");
+
+    let output = syspm(&["inspect", manifest.to_str().expect("temp path is UTF-8")]);
+
+    assert_manifest_rejected(&output);
+}
+
+#[cfg(unix)]
+#[test]
+fn inspect_relative_manifest_symlink_fails() {
+    let (dir, _outside) = project_with_linked_manifest();
+
+    let output = syspm_in(dir.path(), &["inspect", ".project.json"]);
+
+    assert_manifest_rejected(&output);
+}
+
+#[test]
+fn inspect_invalid_metadata_reports_errors_and_fails() {
+    let root = fixture("invalid-metadata");
+    let output = syspm(&["inspect", root.to_str().expect("fixture path is UTF-8")]);
+    assert_eq!(output.status.code(), Some(1));
+    let text = stdout(&output);
+    assert!(text.contains("Validation: 7 errors, 1 warning"), "{text}");
+    assert!(text.contains("error[checksum-mismatch] .meta.json: checksum entry `Indexed.sysml` does not match the file"), "{text}");
+    assert_eq!(
+        stderr(&output).trim(),
+        "syspm: project has validation errors"
+    );
+}
+
+#[test]
+fn inspect_malformed_metadata_prints_partial_report() {
+    let dir = tempfile::tempdir().expect("create temp dir");
+    write_project(dir.path());
+    write_file(&dir.path().join(".meta.json"), "{");
+    let output = syspm(&["inspect", dir.path().to_str().expect("temp path is UTF-8")]);
+    assert_eq!(output.status.code(), Some(1));
+    let report = stdout(&output);
+    assert!(report.contains("Project:"), "{report}");
+    assert!(report.contains("Metadata: unreadable"), "{report}");
+    assert!(
+        report.contains("Validation: 0 errors, 0 warnings (partial)"),
+        "{report}"
+    );
+    let errors = stderr(&output);
+    assert!(
+        errors.starts_with("syspm: invalid project metadata"),
+        "{errors}"
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn inspect_reports_partial_scan() {
+    use std::os::unix::fs::PermissionsExt;
+    let dir = tempfile::tempdir().expect("create temp dir");
+    write_project(dir.path());
+    let locked = dir.path().join("locked");
+    fs::create_dir(&locked).unwrap();
+    fs::set_permissions(&locked, fs::Permissions::from_mode(0o000)).unwrap();
+    let readable = fs::read_dir(&locked).is_ok();
+    let output = syspm(&["inspect", dir.path().to_str().expect("temp path is UTF-8")]);
+    fs::set_permissions(&locked, fs::Permissions::from_mode(0o755)).unwrap();
+    if readable {
+        return; // Running as root: permissions are not enforced.
+    }
+    assert_eq!(output.status.code(), Some(1));
+    let report = stdout(&output);
+    assert!(report.contains("Metadata: none"), "{report}");
+    assert!(report.contains("Model files: 1 (partial)"), "{report}");
+    assert!(
+        report.contains("error[file-unreadable] locked: cannot list model files"),
+        "{report}"
+    );
+
+    assert_eq!(
+        stderr(&output).trim(),
+        "syspm: project has validation errors"
+    );
 }
