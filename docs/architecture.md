@@ -74,10 +74,13 @@ syspm-cli  ──depends on──▶  syspm-core
   yet"), `2` usage error (emitted by `clap`).
 - Results go to stdout. Stderr is for execution failures.
 
-`inspect [PATH]` reads the `.project.json` in `PATH` (default: the current
-directory), or the manifest `PATH` names, and prints its name, version and
-declared usages. `init`, `install` and `update` exit `1` with "not implemented
-yet".
+`inspect [PATH]` finds the project at or above `PATH` (default: the current
+directory) and prints its manifest, its metadata, its model files and every
+validation finding. It exits `0` when there are no errors (warnings are
+allowed), and `1` on an error finding or a `.meta.json` that can't be read.
+When `.meta.json` can't be read, or some directories can't be listed, it still
+prints what it could find and marks those parts as partial. `init`, `install`
+and `update` exit `1` with "not implemented yet".
 
 The package is named `syspm` so that `cargo run -p syspm` and the binary name
 match; the directory is `crates/syspm-cli` to make its role explicit.

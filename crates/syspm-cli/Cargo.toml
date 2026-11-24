@@ -15,3 +15,6 @@ description = "Package manager for SysML v2 and KerML projects"
 anyhow.workspace = true
 clap.workspace = true
 syspm-core = { path = "../syspm-core", version = "0.0.1" }
+
+[dev-dependencies]
+tempfile.workspace = true

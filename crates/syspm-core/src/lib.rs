@@ -2,10 +2,12 @@
 //! can use it.
 //!
 //! So far it reads and validates a project's `.project.json` and `.meta.json`, finds the project
-//! root, and lists the model files. Everything to do with dependencies comes later.
+//! root, lists the model files, and gathers all of that into one report for `inspect`.
+//! Everything to do with dependencies comes later.
 
 mod discover;
 mod interchange;
+mod report;
 mod validate;
 
 pub use discover::{
@@ -17,4 +19,5 @@ pub use interchange::{
     read_manifest, read_metadata,
 };
 
+pub use report::{MetadataStatus, ProjectReport, inspect_project};
 pub use validate::{Diagnostic, Rule, Severity, validate_manifest, validate_metadata};
