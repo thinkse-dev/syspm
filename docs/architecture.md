@@ -99,7 +99,8 @@ match; the directory is `crates/syspm-cli` to make its role explicit.
   than printing; the CLI adds context and reports them with `anyhow`.
 - Reads every Table 12 property of `.project.json` (`read_manifest`) and every
   Table 13 property of `.meta.json` (`read_metadata`), checking JSON structure
-  and types only.
+  and types only. Properties the schema doesn't define are kept
+  (`additional_properties`).
 - Validates both files against the spec and the files on disk
   (`validate_manifest`, `validate_metadata`). It reports every problem at once
   as a `Diagnostic` with a stable rule identifier and a severity, and verifies
@@ -123,7 +124,9 @@ not in anticipation.
 | `syspm.toml`            | **Proposed, optional** | User                  | syspm-specific settings only (for example cache settings). Must never duplicate or override what `.project.json` declares         |
 
 How `.project.json` and `.meta.json` are found, read and validated is
-specified in [specs/project-metadata.md](specs/project-metadata.md).
+specified in [specs/project-metadata.md](specs/project-metadata.md). What
+identifies a package, how versions and constraints are read, and which data
+syspm owns is specified in [specs/package-identity.md](specs/package-identity.md).
 
 The sources and lock files use tool-neutral formats, so that another tool can
 read them and reproduce a result. Their formats will be specified in

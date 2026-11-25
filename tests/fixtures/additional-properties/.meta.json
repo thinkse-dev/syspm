@@ -1,0 +1,14 @@
+{
+  "index": {
+    "Extended": "Extended.sysml"
+  },
+  "created": "2026-11-08T12:00:00Z",
+  "x-example-generator": "fixture",
+  "checksum": {
+    "Extended.sysml": {
+      "value": "3b3af41ac0df550929fac9b6a36cded0b67bc08f5f87df004955631a0254dfb4",
+      "algorithm": "SHA256",
+      "x-example-scope": "raw bytes"
+    }
+  }
+}

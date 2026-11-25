@@ -1,6 +1,7 @@
 //! `.project.json` and `.meta.json`: what they contain and how they're read.
 //!
-//! The rules are in docs/specs/project-metadata.md, sections 1 and 2.
+//! The rules are in docs/specs/project-metadata.md, sections 1 and 2. Properties the schema
+//! doesn't define are kept as docs/specs/package-identity.md section 8 says.
 
 use serde::de::value::MapAccessDeserializer;
 use serde::de::{self, MapAccess, Visitor};
@@ -53,8 +54,8 @@ macro_rules! deserialize_from_object {
 /// It's the project's identity and the other projects it uses. It says nothing about the model
 /// elements in the project's files.
 ///
-/// Reading only checks JSON structure and types. Properties the schema doesn't define are
-/// accepted and ignored for now.
+/// Reading only checks JSON structure and types. Properties the schema doesn't define are kept in
+/// `additional_properties`.
 #[derive(Debug, Deserialize)]
 #[serde(remote = "Self")]
 pub struct ProjectManifest {
@@ -72,6 +73,9 @@ pub struct ProjectManifest {
     pub topic: Vec<String>,
     #[serde(default)]
     pub usage: Vec<ProjectUsage>,
+    /// Properties the schema doesn't define. See [`AdditionalProperties`].
+    #[serde(flatten, deserialize_with = "additional_properties")]
+    pub additional_properties: AdditionalProperties,
 }
 
 deserialize_from_object!(ProjectManifest, "a project manifest (a JSON object)");
@@ -85,6 +89,9 @@ pub struct ProjectUsage {
     pub resource: String,
     #[serde(default, rename = "versionConstraint", deserialize_with = "non_null")]
     pub version_constraint: Option<String>,
+    /// Properties the schema doesn't define. See [`AdditionalProperties`].
+    #[serde(flatten, deserialize_with = "additional_properties")]
+    pub additional_properties: AdditionalProperties,
 }
 
 deserialize_from_object!(ProjectUsage, "a project usage (a JSON object)");
@@ -92,9 +99,9 @@ deserialize_from_object!(ProjectUsage, "a project usage (a JSON object)");
 /// The contents of `.meta.json`: the properties in KerML 1.0 Table 13, as the normative schema
 /// (`KerML-Model-Interchange.json`, `$defs/Meta`) defines them.
 ///
-/// Reading only checks JSON structure and types. Properties the schema doesn't define are
-/// accepted and ignored for now. The maps are sorted by key, so they iterate in the same order
-/// whatever the order in the file.
+/// Reading only checks JSON structure and types. Properties the schema doesn't define are kept in
+/// `additional_properties`. The maps are sorted by key, so they iterate in the same order whatever
+/// the order in the file.
 #[derive(Debug, Deserialize)]
 #[serde(remote = "Self")]
 pub struct ProjectMetadata {
@@ -116,6 +123,9 @@ pub struct ProjectMetadata {
     /// not a list as the text of Table 13 says.
     #[serde(default, deserialize_with = "unique_keys")]
     pub checksum: BTreeMap<String, Checksum>,
+    /// Properties the schema doesn't define. See [`AdditionalProperties`].
+    #[serde(flatten, deserialize_with = "additional_properties")]
+    pub additional_properties: AdditionalProperties,
 }
 
 deserialize_from_object!(ProjectMetadata, "project metadata (a JSON object)");
@@ -126,9 +136,129 @@ deserialize_from_object!(ProjectMetadata, "project metadata (a JSON object)");
 pub struct Checksum {
     pub value: String,
     pub algorithm: String,
+    /// Properties the schema doesn't define. See [`AdditionalProperties`].
+    #[serde(flatten, deserialize_with = "additional_properties")]
+    pub additional_properties: AdditionalProperties,
 }
 
 deserialize_from_object!(Checksum, "a checksum (a JSON object)");
+
+/// The properties of an object that the schema doesn't define, by name.
+///
+/// The schema allows them, so other tools may write them. They're kept so that syspm can report
+/// them. A name that appears twice in any object they contain, at any depth, is a parse error.
+///
+/// These values aren't a lossless copy of the file, so never write a file back from them:
+///
+/// - Entries, and the members of nested objects, are sorted by name. The order in the file is
+///   lost.
+/// - A number is kept as a 64-bit integer or a double. An integer outside the 64-bit range, or a
+///   decimal more precise than a double, comes back as a nearby double.
+///
+/// The first command that rewrites a standard file has to choose a lossless representation
+/// (docs/specs/package-identity.md section 8).
+pub type AdditionalProperties = BTreeMap<String, serde_json::Value>;
+
+/// Reads the properties the schema doesn't define, and rejects a name that appears twice in any
+/// object they contain.
+fn additional_properties<'de, D>(deserializer: D) -> Result<AdditionalProperties, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let entries = unique_keys::<D, UniqueKeysValue>(deserializer)?;
+    Ok(entries
+        .into_iter()
+        .map(|(key, UniqueKeysValue(value))| (key, value))
+        .collect())
+}
+
+/// A JSON value with no repeated name in any of its objects, at any depth.
+///
+/// `serde_json::Value` keeps the last of two equal names, so a nested object could mean one thing
+/// to one reader and something else to another. This builds the same value but rejects the
+/// repeated name.
+struct UniqueKeysValue(serde_json::Value);
+
+impl<'de> Deserialize<'de> for UniqueKeysValue {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        use serde_json::{Map, Number, Value};
+
+        struct ValueVisitor;
+
+        impl<'de> Visitor<'de> for ValueVisitor {
+            type Value = UniqueKeysValue;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+                formatter.write_str("any JSON value")
+            }
+
+            fn visit_bool<E>(self, value: bool) -> Result<Self::Value, E> {
+                Ok(UniqueKeysValue(Value::Bool(value)))
+            }
+
+            fn visit_i64<E>(self, value: i64) -> Result<Self::Value, E> {
+                Ok(UniqueKeysValue(Value::Number(value.into())))
+            }
+
+            fn visit_u64<E>(self, value: u64) -> Result<Self::Value, E> {
+                Ok(UniqueKeysValue(Value::Number(value.into())))
+            }
+
+            fn visit_f64<E>(self, value: f64) -> Result<Self::Value, E> {
+                // JSON has no NaN or infinity, so a parser never gives this a value that fails.
+                Ok(UniqueKeysValue(
+                    Number::from_f64(value).map_or(Value::Null, Value::Number),
+                ))
+            }
+
+            fn visit_str<E>(self, value: &str) -> Result<Self::Value, E> {
+                Ok(UniqueKeysValue(Value::String(value.to_owned())))
+            }
+
+            fn visit_string<E>(self, value: String) -> Result<Self::Value, E> {
+                Ok(UniqueKeysValue(Value::String(value)))
+            }
+
+            fn visit_unit<E>(self) -> Result<Self::Value, E> {
+                Ok(UniqueKeysValue(Value::Null))
+            }
+
+            fn visit_none<E>(self) -> Result<Self::Value, E> {
+                Ok(UniqueKeysValue(Value::Null))
+            }
+
+            fn visit_some<D: Deserializer<'de>>(
+                self,
+                deserializer: D,
+            ) -> Result<Self::Value, D::Error> {
+                UniqueKeysValue::deserialize(deserializer)
+            }
+
+            fn visit_seq<A: de::SeqAccess<'de>>(self, mut seq: A) -> Result<Self::Value, A::Error> {
+                let mut elements = Vec::new();
+                while let Some(UniqueKeysValue(element)) = seq.next_element()? {
+                    elements.push(element);
+                }
+                Ok(UniqueKeysValue(Value::Array(elements)))
+            }
+
+            fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> Result<Self::Value, A::Error> {
+                let mut members = Map::new();
+                while let Some((key, UniqueKeysValue(value))) =
+                    map.next_entry::<String, UniqueKeysValue>()?
+                {
+                    if members.contains_key(&key) {
+                        return Err(de::Error::custom(format!("duplicate key `{key}`")));
+                    }
+                    members.insert(key, value);
+                }
+                Ok(UniqueKeysValue(Value::Object(members)))
+            }
+        }
+
+        deserializer.deserialize_any(ValueVisitor)
+    }
+}
 
 /// Reads an optional property that, when present, must be a `T`.
 ///

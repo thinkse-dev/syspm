@@ -64,7 +64,12 @@ fn assert_single(diagnostics: &[Diagnostic], rule: &str, path: &str, severity: S
 
 #[test]
 fn valid_fixture_projects_produce_no_diagnostics() {
-    for name in ["all-properties", "common-interfaces"] {
+    for name in [
+        "all-properties",
+        "common-interfaces",
+        "additional-properties",
+        "toolkit-archive",
+    ] {
         let root = fixture(name);
         let manifest = read_manifest(&root.join(".project.json")).unwrap();
         let metadata = read_metadata(&root.join(".meta.json")).unwrap();

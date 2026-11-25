@@ -1,0 +1,15 @@
+{
+  "name": "additional-properties",
+  "version": "0.1.0",
+  "x-example-tool": {
+    "profile": "fixture",
+    "flags": [1, 2]
+  },
+  "usage": [
+    {
+      "resource": "https://example.invalid/common-interfaces.kpar",
+      "versionConstraint": "0.1.0",
+      "x-example-note": "kept with the usage"
+    }
+  ]
+}

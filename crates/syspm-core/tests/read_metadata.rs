@@ -1,6 +1,7 @@
 mod common;
 
 use common::fixture;
+use serde_json::json;
 use std::fs;
 use std::path::{Path, PathBuf};
 use syspm_core::{ProjectMetadata, ReadMetadataError, read_metadata};
@@ -80,7 +81,7 @@ fn reads_empty_index() {
 }
 
 #[test]
-fn unknown_properties_are_accepted() {
+fn unknown_properties_are_kept() {
     let (_, result) = read_temp_metadata(
         r#"{
             "index": {},
@@ -91,6 +92,53 @@ fn unknown_properties_are_accepted() {
     );
     let metadata = result.unwrap();
     assert_eq!(metadata.checksum["A.sysml"].value, "00");
+    assert_eq!(
+        Vec::from_iter(&metadata.additional_properties),
+        [(&"x-tool-setting".to_string(), &json!([1, 2, 3]))]
+    );
+    assert_eq!(
+        Vec::from_iter(&metadata.checksum["A.sysml"].additional_properties),
+        [(&"extra".to_string(), &json!(true))]
+    );
+}
+
+/// See `reads_manifest_written_by_another_tool` in `read_manifest.rs` for where this comes from.
+#[test]
+fn reads_metadata_written_by_another_tool() {
+    let metadata = read_metadata(&fixture("toolkit-archive/.meta.json")).unwrap();
+    assert_eq!(Vec::from_iter(metadata.index.keys()), ["UnitsLib"]);
+    assert_eq!(metadata.index["UnitsLib"], "UnitsLib.sysml");
+    assert_eq!(
+        metadata.metamodel.as_deref(),
+        Some("https://www.omg.org/spec/SysML/20250201")
+    );
+    assert_eq!(metadata.checksum["UnitsLib.sysml"].algorithm, "SHA256");
+    assert!(metadata.additional_properties.is_empty());
+}
+
+#[test]
+fn reads_fixture_additional_properties() {
+    let metadata = read_metadata(&fixture("additional-properties/.meta.json")).unwrap();
+    assert_eq!(
+        metadata.additional_properties["x-example-generator"],
+        json!("fixture")
+    );
+    assert_eq!(
+        metadata.checksum["Extended.sysml"].additional_properties["x-example-scope"],
+        json!("raw bytes")
+    );
+}
+
+#[test]
+fn defined_properties_are_not_additional() {
+    let metadata = read_metadata(&fixture("all-properties/.meta.json")).unwrap();
+    assert!(metadata.additional_properties.is_empty());
+    assert!(
+        metadata
+            .checksum
+            .values()
+            .all(|checksum| checksum.additional_properties.is_empty())
+    );
 }
 
 #[test]
@@ -177,6 +225,16 @@ fn duplicate_keys_are_parse_errors() {
         }}"#,
         r#"{"index": {}, "created": "x", "checksum": {
             "A.sysml": {"value": "00", "value": "11", "algorithm": "SHA256"}
+        }}"#,
+        // Properties the schema doesn't define are kept, so they can't repeat either.
+        r#"{"index": {}, "created": "x", "x": 1, "x": 2}"#,
+        r#"{"index": {}, "created": "x", "checksum": {
+            "A.sysml": {"value": "00", "algorithm": "SHA256", "x": 1, "x": 2}
+        }}"#,
+        // At any depth.
+        r#"{"index": {}, "created": "x", "y": {"x": 1, "x": 2}}"#,
+        r#"{"index": {}, "created": "x", "checksum": {
+            "A.sysml": {"value": "00", "algorithm": "SHA256", "y": [{"x": 1, "x": 2}]}
         }}"#,
     ];
     for contents in cases {
