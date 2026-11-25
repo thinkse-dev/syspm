@@ -54,7 +54,7 @@ The following make a file unreadable. They are reported as a read failure, befor
 2. A property with the wrong type. Optional properties can be left out, but an explicit `null` is a wrong type.
 3. The same name twice in one object. This applies everywhere, including the keys of `index` and `checksum` and objects nested inside unknown properties. Different readers keep different duplicates, so a file like that doesn't have one meaning.
 
-Properties the schema doesn't define are fine. The schema allows them and some tools write them.
+Properties the schema doesn't define are fine. The schema allows them and some tools write them. syspm keeps them ([package-identity.md](package-identity.md) section 8).
 
 ## 3. Finding the project
 

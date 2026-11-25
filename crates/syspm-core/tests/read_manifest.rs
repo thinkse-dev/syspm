@@ -1,6 +1,7 @@
 mod common;
 
 use common::fixture;
+use serde_json::json;
 use std::path::{Path, PathBuf};
 use syspm_core::{ProjectManifest, ReadManifestError, read_manifest};
 
@@ -103,7 +104,7 @@ fn omitted_optional_properties_use_defaults() {
 }
 
 #[test]
-fn unknown_properties_are_accepted() {
+fn unknown_properties_are_kept() {
     let (_, result) = read_temp_manifest(
         r#"{
             "name": "extended",
@@ -114,7 +115,73 @@ fn unknown_properties_are_accepted() {
     );
     let manifest = result.unwrap();
     assert_eq!(manifest.name, "extended");
+    assert_eq!(
+        Vec::from_iter(&manifest.additional_properties),
+        [(&"x-tool-setting".to_string(), &json!({"nested": true}))]
+    );
+    assert_eq!(manifest.usage.len(), 1);
     assert_eq!(manifest.usage[0].resource, "https://example.invalid/a.kpar");
+    assert_eq!(
+        Vec::from_iter(&manifest.usage[0].additional_properties),
+        [(&"extra".to_string(), &json!(1))]
+    );
+}
+
+#[test]
+fn unknown_property_values_keep_every_json_kind() {
+    let (_, result) = read_temp_manifest(
+        r#"{
+            "name": "n",
+            "version": "1",
+            "x": {
+                "null": null, "true": true, "false": false,
+                "negative": -9223372036854775808, "large": 18446744073709551615, "decimal": 0.5,
+                "string": "a\"é", "array": [[], {}, [null]], "object": {"inner": {"deep": 1}}
+            }
+        }"#,
+    );
+    assert_eq!(
+        result.unwrap().additional_properties["x"],
+        json!({
+            "null": null, "true": true, "false": false,
+            "negative": i64::MIN, "large": u64::MAX, "decimal": 0.5,
+            "string": "a\"é", "array": [[], {}, [null]], "object": {"inner": {"deep": 1}}
+        })
+    );
+}
+
+/// `toolkit-archive` holds the `.project.json`, `.meta.json` and model file of an archive that
+/// another tool wrote. They're byte for byte as written, so they test compact output with the keys
+/// in a different order. That tool takes the name from the output file name and always writes
+/// version `1.0.0`, which is why a name and version say nothing about the model
+/// (docs/specs/package-identity.md section 2).
+#[test]
+fn reads_manifest_written_by_another_tool() {
+    let manifest = read_manifest(&fixture("toolkit-archive/.project.json")).unwrap();
+    assert_eq!(manifest.name, "units");
+    assert_eq!(manifest.version, "1.0.0");
+    assert!(manifest.usage.is_empty());
+    assert!(manifest.additional_properties.is_empty());
+}
+
+#[test]
+fn reads_fixture_additional_properties() {
+    let manifest = read_manifest(&fixture("additional-properties/.project.json")).unwrap();
+    assert_eq!(
+        manifest.additional_properties["x-example-tool"],
+        json!({"profile": "fixture", "flags": [1, 2]})
+    );
+    assert_eq!(
+        manifest.usage[0].additional_properties["x-example-note"],
+        json!("kept with the usage")
+    );
+}
+
+#[test]
+fn defined_properties_are_not_additional() {
+    let manifest = read_manifest(&fixture("all-properties/.project.json")).unwrap();
+    assert!(manifest.additional_properties.is_empty());
+    assert!(manifest.usage[0].additional_properties.is_empty());
 }
 
 #[test]
@@ -124,6 +191,25 @@ fn repeated_property_is_parse_error() {
         r#"{"name": "n", "version": "1", "usage": [{"resource": "https://example.invalid/a", "resource": "https://example.invalid/b"}]}"#,
     ] {
         let (path, result) = read_temp_manifest(contents);
+        assert_parse_error_naming(&path, result);
+    }
+}
+
+#[test]
+fn repeated_unknown_property_is_parse_error() {
+    for contents in [
+        r#"{"name": "n", "version": "1", "x": 1, "x": 2}"#,
+        r#"{"name": "n", "version": "1", "usage": [{"resource": "https://example.invalid/a", "x": 1, "x": 2}]}"#,
+        // A name can't repeat at any depth inside an unknown property either.
+        r#"{"name": "n", "version": "1", "y": {"mode": "safe", "x": 1, "x": 2}}"#,
+        r#"{"name": "n", "version": "1", "y": [{"z": {"x": 1, "x": 2}}]}"#,
+        r#"{"name": "n", "version": "1", "usage": [{"resource": "https://example.invalid/a", "y": {"x": 1, "x": 2}}]}"#,
+    ] {
+        let (path, result) = read_temp_manifest(contents);
+        let source = std::error::Error::source(result.as_ref().unwrap_err())
+            .unwrap()
+            .to_string();
+        assert!(source.contains("duplicate key `x`"), "{source}");
         assert_parse_error_naming(&path, result);
     }
 }

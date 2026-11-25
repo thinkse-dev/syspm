@@ -16,8 +16,8 @@ pub use discover::{
 };
 pub use init::{InitError, init_project};
 pub use interchange::{
-    Checksum, ProjectManifest, ProjectMetadata, ProjectUsage, ReadManifestError, ReadMetadataError,
-    read_manifest, read_metadata,
+    AdditionalProperties, Checksum, ProjectManifest, ProjectMetadata, ProjectUsage,
+    ReadManifestError, ReadMetadataError, read_manifest, read_metadata,
 };
 
 pub use report::{MetadataStatus, ProjectReport, inspect_project};

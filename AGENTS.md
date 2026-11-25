@@ -32,10 +32,13 @@ validation findings; `install` and `update` are stubs that exit 1. The plan is i
   settings specific to syspm; future sources and lock files, in documented,
   tool-neutral formats, record resolution intent and its result. None of these
   exist yet.
-- Do not invent KerML or SysML requirements. Version semantics, resolution,
-  source and lock formats, registries and KPAR details are **open** until they
-  are specified in `docs/specs/`. Ask, or record an assumption, rather than
-  guessing.
+- Package identity is the usage IRI, versions are opaque strings, and only
+  exact version constraints are supported
+  ([docs/specs/package-identity.md](docs/specs/package-identity.md)).
+- Do not invent KerML or SysML requirements. Version semantics beyond exact
+  constraints, resolution, source and lock formats, registries and KPAR
+  details are **open** until they are specified in `docs/specs/`. Ask, or
+  record an assumption, rather than guessing.
 - No speculative abstractions, traits, or crates ahead of a feature that
   needs them.
 
