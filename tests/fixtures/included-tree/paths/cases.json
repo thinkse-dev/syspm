@@ -1,0 +1,325 @@
+{
+  "_comment": "Member-path test vectors (docs/specs/included-tree.md, section 3). Each case lists the member paths of one tree as a source presents them: a string, or {\"hex\": ...} for bytes that are not UTF-8. The expected canonical order (null when there are errors), errors and warnings are written by hand.",
+  "cases": [
+    {
+      "name": "nfd-name-alone",
+      "description": "A decomposed name (e + U+0300), as macOS can present it, becomes its NFC form.",
+      "paths": [
+        "Modèle.sysml"
+      ],
+      "expected_order": [
+        "Modèle.sysml"
+      ],
+      "expected_errors": [],
+      "expected_warnings": []
+    },
+    {
+      "name": "nfd-and-nfc-in-one-tree",
+      "description": "Two members whose names differ only in normalization: possible on Linux, in Git with precomposeunicode=false, and in ZIP.",
+      "paths": [
+        "Modèle.sysml",
+        "Modèle.sysml"
+      ],
+      "expected_order": null,
+      "expected_errors": [
+        {
+          "rule": "normalization-collision",
+          "paths": [
+            "Modèle.sysml",
+            "Modèle.sysml"
+          ]
+        }
+      ],
+      "expected_warnings": []
+    },
+    {
+      "name": "case-collision-files",
+      "paths": [
+        "Model.sysml",
+        "model.sysml"
+      ],
+      "expected_order": null,
+      "expected_errors": [
+        {
+          "rule": "case-collision",
+          "paths": [
+            "Model.sysml",
+            "model.sysml"
+          ]
+        }
+      ],
+      "expected_warnings": []
+    },
+    {
+      "name": "case-collision-directories",
+      "description": "Different files, but their directories collide: a case-insensitive file system would merge them into one directory.",
+      "paths": [
+        "Models/A.sysml",
+        "models/B.sysml"
+      ],
+      "expected_order": null,
+      "expected_errors": [
+        {
+          "rule": "case-collision",
+          "paths": [
+            "Models",
+            "models"
+          ]
+        }
+      ],
+      "expected_warnings": []
+    },
+    {
+      "name": "case-collision-full-folding",
+      "description": "Collisions that need full folding or NFKC: sharp s, fi ligature, and the Kelvin sign, which NFC alone already maps to ASCII K (a singleton decomposition), so its canonical path is K.sysml. All three also collide on APFS.",
+      "paths": [
+        "Straße.sysml",
+        "STRASSE.sysml",
+        "K.sysml",
+        "k.sysml",
+        "ﬁle.sysml",
+        "file.sysml"
+      ],
+      "expected_order": null,
+      "expected_errors": [
+        {
+          "rule": "case-collision",
+          "paths": [
+            "STRASSE.sysml",
+            "Straße.sysml"
+          ]
+        },
+        {
+          "rule": "case-collision",
+          "paths": [
+            "file.sysml",
+            "ﬁle.sysml"
+          ]
+        },
+        {
+          "rule": "case-collision",
+          "paths": [
+            "K.sysml",
+            "k.sysml"
+          ]
+        }
+      ],
+      "expected_warnings": []
+    },
+    {
+      "name": "ordering",
+      "description": "Bytewise order of the full UTF-8 path: uppercase before lowercase; 'a-b' (0x2D) before 'a/x' (0x2F), unlike sorting by segment; 'é' (0xC3...) after 'z', unlike most locales.",
+      "paths": [
+        "z.sysml",
+        "a/x.sysml",
+        "é.sysml",
+        "a-b.sysml",
+        "a.b/x.sysml",
+        "a.sysml",
+        "B.sysml"
+      ],
+      "expected_order": [
+        "B.sysml",
+        "a-b.sysml",
+        "a.b/x.sysml",
+        "a.sysml",
+        "a/x.sysml",
+        "z.sysml",
+        "é.sysml"
+      ],
+      "expected_errors": [],
+      "expected_warnings": []
+    },
+    {
+      "name": "invalid-utf8",
+      "description": "Possible on Linux file systems, in Git trees and in ZIP members; APFS refuses to create it (EILSEQ).",
+      "paths": [
+        {
+          "hex": "626164ff2e7379736d6c"
+        }
+      ],
+      "expected_order": null,
+      "expected_errors": [
+        {
+          "rule": "invalid-utf8",
+          "paths": [
+            "626164ff2e7379736d6c"
+          ]
+        }
+      ],
+      "expected_warnings": []
+    },
+    {
+      "name": "syntax-errors",
+      "description": "Control characters (C0, DEL, C1), backslash, unassigned code point (U+0378), and empty, '.' and '..' segments (possible in archives).",
+      "paths": [
+        "c\u0001.sysml",
+        "c.sysml",
+        "c.sysml",
+        "a\\b.sysml",
+        "x͸.sysml",
+        "a//b.sysml",
+        "./c.sysml",
+        "d/../e.sysml"
+      ],
+      "expected_order": null,
+      "expected_errors": [
+        {
+          "rule": "control-character",
+          "paths": [
+            "c\u0001.sysml"
+          ]
+        },
+        {
+          "rule": "control-character",
+          "paths": [
+            "c.sysml"
+          ]
+        },
+        {
+          "rule": "control-character",
+          "paths": [
+            "c.sysml"
+          ]
+        },
+        {
+          "rule": "backslash",
+          "paths": [
+            "a\\b.sysml"
+          ]
+        },
+        {
+          "rule": "unassigned-code-point",
+          "paths": [
+            "x͸.sysml"
+          ]
+        },
+        {
+          "rule": "invalid-segment",
+          "paths": [
+            "a//b.sysml"
+          ]
+        },
+        {
+          "rule": "invalid-segment",
+          "paths": [
+            "./c.sysml"
+          ]
+        },
+        {
+          "rule": "invalid-segment",
+          "paths": [
+            "d/../e.sysml"
+          ]
+        }
+      ],
+      "expected_warnings": []
+    },
+    {
+      "name": "windows-portability-warnings",
+      "description": "Legal names that Windows cannot hold: identity accepts them; a capture warns; a sync that writes them on Windows fails.",
+      "paths": [
+        "CON.sysml",
+        "aux",
+        "COM¹.txt",
+        "lpt3.tar.gz",
+        "a:b.sysml",
+        "q?.sysml",
+        "trailing.",
+        "space /x.sysml",
+        "COM0.sysml",
+        "CONSOLE.sysml"
+      ],
+      "expected_order": [
+        "COM0.sysml",
+        "COM¹.txt",
+        "CON.sysml",
+        "CONSOLE.sysml",
+        "a:b.sysml",
+        "aux",
+        "lpt3.tar.gz",
+        "q?.sysml",
+        "space /x.sysml",
+        "trailing."
+      ],
+      "expected_errors": [],
+      "expected_warnings": [
+        {
+          "rule": "windows-reserved-name",
+          "paths": [
+            "COM¹.txt"
+          ]
+        },
+        {
+          "rule": "windows-reserved-name",
+          "paths": [
+            "CON.sysml"
+          ]
+        },
+        {
+          "rule": "windows-reserved-character",
+          "paths": [
+            "a:b.sysml"
+          ]
+        },
+        {
+          "rule": "windows-reserved-name",
+          "paths": [
+            "aux"
+          ]
+        },
+        {
+          "rule": "windows-reserved-name",
+          "paths": [
+            "lpt3.tar.gz"
+          ]
+        },
+        {
+          "rule": "windows-reserved-character",
+          "paths": [
+            "q?.sysml"
+          ]
+        },
+        {
+          "rule": "windows-trailing-dot-or-space",
+          "paths": [
+            "space /x.sysml"
+          ]
+        },
+        {
+          "rule": "windows-trailing-dot-or-space",
+          "paths": [
+            "trailing."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "format-characters-and-long-segment",
+      "description": "A right-to-left override (U+202E) makes a name display differently from its content; a segment of 256 UTF-8 bytes (250 x 'L' + '.sysml') exceeds common file-system limits. Both are warnings.",
+      "paths": [
+        "evil‮gnp.sysml",
+        "LLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL.sysml"
+      ],
+      "expected_order": [
+        "LLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL.sysml",
+        "evil‮gnp.sysml"
+      ],
+      "expected_errors": [],
+      "expected_warnings": [
+        {
+          "rule": "segment-too-long",
+          "paths": [
+            "LLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL.sysml"
+          ]
+        },
+        {
+          "rule": "format-character",
+          "paths": [
+            "evil‮gnp.sysml"
+          ]
+        }
+      ]
+    }
+  ]
+}

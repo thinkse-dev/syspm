@@ -1,0 +1,1147 @@
+{
+  "_comment": "Entry-type, byte and archive test vectors (docs/specs/included-tree.md, section 4). Directory and git cases list entries as the source reports them (lstat; git ls-tree -r -t). Archive cases are ZIP specifications; archives/<name>.zip is the archive built from each, byte for byte. Expected members (canonical path and exact bytes, in canonical order; null when there are errors), errors and warnings are written by hand.",
+  "cases": [
+    {
+      "name": "directory-regular-files",
+      "source": "directory",
+      "description": "E3, E4, M1: directories (including an empty one) are not members, two hard links to one file are two members with the same bytes, an executable file and an empty file are ordinary members.",
+      "entries": [
+        {
+          "path": ".project.json",
+          "type": "file",
+          "mode": "0644",
+          "text": "{\"name\": \"p\", \"version\": \"1.0.0\"}\n"
+        },
+        {
+          "path": "models",
+          "type": "directory",
+          "mode": "0755"
+        },
+        {
+          "path": "models/A.sysml",
+          "type": "file",
+          "mode": "0644",
+          "text": "package A;\n",
+          "inode": 101
+        },
+        {
+          "path": "models/A-hardlink.sysml",
+          "type": "file",
+          "mode": "0644",
+          "text": "package A;\n",
+          "inode": 101
+        },
+        {
+          "path": "tools",
+          "type": "directory",
+          "mode": "0755"
+        },
+        {
+          "path": "tools/gen.sh",
+          "type": "file",
+          "mode": "0755",
+          "text": "#!/bin/sh\n"
+        },
+        {
+          "path": "empty",
+          "type": "directory",
+          "mode": "0755"
+        },
+        {
+          "path": "empty.txt",
+          "type": "file",
+          "mode": "0644",
+          "text": ""
+        }
+      ],
+      "expected_members": [
+        {
+          "path": ".project.json",
+          "text": "{\"name\": \"p\", \"version\": \"1.0.0\"}\n"
+        },
+        {
+          "path": "empty.txt",
+          "text": ""
+        },
+        {
+          "path": "models/A-hardlink.sysml",
+          "text": "package A;\n"
+        },
+        {
+          "path": "models/A.sysml",
+          "text": "package A;\n"
+        },
+        {
+          "path": "tools/gen.sh",
+          "text": "#!/bin/sh\n"
+        }
+      ],
+      "expected_errors": [],
+      "expected_warnings": []
+    },
+    {
+      "name": "directory-symbolic-links",
+      "source": "directory",
+      "description": "E1: a link to a file, a link to a directory, a dangling link and a linked .meta.json are each an error; links are never followed.",
+      "entries": [
+        {
+          "path": ".project.json",
+          "type": "file",
+          "mode": "0644",
+          "text": "{\"name\": \"p\", \"version\": \"1.0.0\"}\n"
+        },
+        {
+          "path": ".meta.json",
+          "type": "symlink",
+          "target": "../shared/.meta.json"
+        },
+        {
+          "path": "models",
+          "type": "directory",
+          "mode": "0755"
+        },
+        {
+          "path": "models/A.sysml",
+          "type": "file",
+          "mode": "0644",
+          "text": "package A;\n"
+        },
+        {
+          "path": "models/B.sysml",
+          "type": "symlink",
+          "target": "A.sysml"
+        },
+        {
+          "path": "linked",
+          "type": "symlink",
+          "target": "models"
+        },
+        {
+          "path": "gone.sysml",
+          "type": "symlink",
+          "target": "does-not-exist.sysml"
+        }
+      ],
+      "expected_members": null,
+      "expected_errors": [
+        {
+          "rule": "symbolic-link",
+          "paths": [
+            ".meta.json"
+          ]
+        },
+        {
+          "rule": "symbolic-link",
+          "paths": [
+            "models/B.sysml"
+          ]
+        },
+        {
+          "rule": "symbolic-link",
+          "paths": [
+            "linked"
+          ]
+        },
+        {
+          "rule": "symbolic-link",
+          "paths": [
+            "gone.sysml"
+          ]
+        }
+      ],
+      "expected_warnings": []
+    },
+    {
+      "name": "directory-special-entries",
+      "source": "directory",
+      "description": "E2: a named pipe, a socket and character and block devices are unsupported entries.",
+      "entries": [
+        {
+          "path": ".project.json",
+          "type": "file",
+          "mode": "0644",
+          "text": "{\"name\": \"p\", \"version\": \"1.0.0\"}\n"
+        },
+        {
+          "path": "pipe",
+          "type": "fifo"
+        },
+        {
+          "path": "ipc.sock",
+          "type": "socket"
+        },
+        {
+          "path": "tty",
+          "type": "char-device"
+        },
+        {
+          "path": "disk",
+          "type": "block-device"
+        }
+      ],
+      "expected_members": null,
+      "expected_errors": [
+        {
+          "rule": "unsupported-entry",
+          "paths": [
+            "pipe"
+          ]
+        },
+        {
+          "rule": "unsupported-entry",
+          "paths": [
+            "ipc.sock"
+          ]
+        },
+        {
+          "rule": "unsupported-entry",
+          "paths": [
+            "tty"
+          ]
+        },
+        {
+          "rule": "unsupported-entry",
+          "paths": [
+            "disk"
+          ]
+        }
+      ],
+      "expected_warnings": []
+    },
+    {
+      "name": "directory-excluded-entries-not-checked",
+      "source": "directory",
+      "description": "Selection (section 2) runs first: links and special entries that default-v1 excludes are not errors. lib/.project.json is a link, which still marks a nested package root (S2: an entry that is not a directory), so all of lib/ is excluded.",
+      "entries": [
+        {
+          "path": ".project.json",
+          "type": "file",
+          "mode": "0644",
+          "text": "{\"name\": \"p\", \"version\": \"1.0.0\"}\n"
+        },
+        {
+          "path": "A.sysml",
+          "type": "file",
+          "mode": "0644",
+          "text": "package A;\n"
+        },
+        {
+          "path": ".git",
+          "type": "directory",
+          "mode": "0755"
+        },
+        {
+          "path": ".git/hooks-link",
+          "type": "symlink",
+          "target": "/usr/share/git-core/templates/hooks"
+        },
+        {
+          "path": ".git/fsmonitor--daemon.ipc",
+          "type": "socket"
+        },
+        {
+          "path": "__MACOSX",
+          "type": "directory",
+          "mode": "0755"
+        },
+        {
+          "path": "__MACOSX/pipe",
+          "type": "fifo"
+        },
+        {
+          "path": "lib",
+          "type": "directory",
+          "mode": "0755"
+        },
+        {
+          "path": "lib/.project.json",
+          "type": "symlink",
+          "target": "../.project.json"
+        },
+        {
+          "path": "lib/link.sysml",
+          "type": "symlink",
+          "target": "../A.sysml"
+        }
+      ],
+      "expected_members": [
+        {
+          "path": ".project.json",
+          "text": "{\"name\": \"p\", \"version\": \"1.0.0\"}\n"
+        },
+        {
+          "path": "A.sysml",
+          "text": "package A;\n"
+        }
+      ],
+      "expected_errors": [],
+      "expected_warnings": []
+    },
+    {
+      "name": "directory-exact-bytes",
+      "source": "directory",
+      "description": "B1: bytes are taken exactly: LF, CRLF, lone CR, a UTF-8 BOM, UTF-16 and no final newline are all kept as they are.",
+      "entries": [
+        {
+          "path": ".project.json",
+          "type": "file",
+          "mode": "0644",
+          "text": "{\"name\": \"p\", \"version\": \"1.0.0\"}\n"
+        },
+        {
+          "path": "lf.sysml",
+          "type": "file",
+          "mode": "0644",
+          "text": "a\nb\n"
+        },
+        {
+          "path": "crlf.sysml",
+          "type": "file",
+          "mode": "0644",
+          "hex": "610d0a620d0a"
+        },
+        {
+          "path": "cr.sysml",
+          "type": "file",
+          "mode": "0644",
+          "hex": "610d620d"
+        },
+        {
+          "path": "bom.sysml",
+          "type": "file",
+          "mode": "0644",
+          "hex": "efbbbf7061636b61676520583b0a"
+        },
+        {
+          "path": "utf16.sysml",
+          "type": "file",
+          "mode": "0644",
+          "hex": "fffe61000a00"
+        },
+        {
+          "path": "no-newline.sysml",
+          "type": "file",
+          "mode": "0644",
+          "text": "a"
+        }
+      ],
+      "expected_members": [
+        {
+          "path": ".project.json",
+          "text": "{\"name\": \"p\", \"version\": \"1.0.0\"}\n"
+        },
+        {
+          "path": "bom.sysml",
+          "hex": "efbbbf7061636b61676520583b0a"
+        },
+        {
+          "path": "cr.sysml",
+          "hex": "610d620d"
+        },
+        {
+          "path": "crlf.sysml",
+          "hex": "610d0a620d0a"
+        },
+        {
+          "path": "lf.sysml",
+          "text": "a\nb\n"
+        },
+        {
+          "path": "no-newline.sysml",
+          "text": "a"
+        },
+        {
+          "path": "utf16.sysml",
+          "hex": "fffe61000a00"
+        }
+      ],
+      "expected_errors": [],
+      "expected_warnings": []
+    },
+    {
+      "name": "directory-checkout-filtered",
+      "source": "directory",
+      "description": "B3: a directory inside a Git working tree is hashed as it is on disk. A.sysml was converted to CRLF on checkout (Git considers it unmodified: clean_matches), so it is a member with CRLF bytes and a checkout-filtered warning. B.sysml was edited, which is not a filter effect, so there is no warning. C.sysml is identical to its blob.",
+      "entries": [
+        {
+          "path": ".project.json",
+          "type": "file",
+          "mode": "0644",
+          "text": "{\"name\": \"p\", \"version\": \"1.0.0\"}\n",
+          "git": {
+            "text": "{\"name\": \"p\", \"version\": \"1.0.0\"}\n",
+            "clean_matches": true
+          }
+        },
+        {
+          "path": "A.sysml",
+          "type": "file",
+          "mode": "0644",
+          "hex": "7061636b61676520413b0d0a",
+          "git": {
+            "text": "package A;\n",
+            "clean_matches": true
+          }
+        },
+        {
+          "path": "B.sysml",
+          "type": "file",
+          "mode": "0644",
+          "text": "package B2;\n",
+          "git": {
+            "text": "package B;\n",
+            "clean_matches": false
+          }
+        },
+        {
+          "path": "C.sysml",
+          "type": "file",
+          "mode": "0644",
+          "text": "package C;\n",
+          "git": {
+            "text": "package C;\n",
+            "clean_matches": true
+          }
+        }
+      ],
+      "expected_members": [
+        {
+          "path": ".project.json",
+          "text": "{\"name\": \"p\", \"version\": \"1.0.0\"}\n"
+        },
+        {
+          "path": "A.sysml",
+          "hex": "7061636b61676520413b0d0a"
+        },
+        {
+          "path": "B.sysml",
+          "text": "package B2;\n"
+        },
+        {
+          "path": "C.sysml",
+          "text": "package C;\n"
+        }
+      ],
+      "expected_errors": [],
+      "expected_warnings": [
+        {
+          "rule": "checkout-filtered",
+          "paths": [
+            "A.sysml"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "git-tree-blobs",
+      "source": "git",
+      "description": "B2, M1, E3: a Git tree (git ls-tree -r -t). Member bytes are the blob bytes; checkout_text shows what core.autocrlf=true would write on checkout, which is ignored. Mode 100755 is an ordinary member. Tree entries (040000) are not members.",
+      "entries": [
+        {
+          "path": ".project.json",
+          "mode": "100644",
+          "text": "{\"name\": \"p\", \"version\": \"1.0.0\"}\n"
+        },
+        {
+          "path": "models",
+          "mode": "040000"
+        },
+        {
+          "path": "models/A.sysml",
+          "mode": "100644",
+          "text": "package A;\n",
+          "checkout_text": "package A;\r\n"
+        },
+        {
+          "path": "tools",
+          "mode": "040000"
+        },
+        {
+          "path": "tools/gen.sh",
+          "mode": "100755",
+          "text": "#!/bin/sh\n"
+        }
+      ],
+      "expected_members": [
+        {
+          "path": ".project.json",
+          "text": "{\"name\": \"p\", \"version\": \"1.0.0\"}\n"
+        },
+        {
+          "path": "models/A.sysml",
+          "text": "package A;\n"
+        },
+        {
+          "path": "tools/gen.sh",
+          "text": "#!/bin/sh\n"
+        }
+      ],
+      "expected_errors": [],
+      "expected_warnings": []
+    },
+    {
+      "name": "git-links-and-submodules",
+      "source": "git",
+      "description": "E1, E2: a symbolic link (120000, whose blob is the target) and a submodule (160000, a commit id with no content in this tree) are errors.",
+      "entries": [
+        {
+          "path": ".project.json",
+          "mode": "100644",
+          "text": "{\"name\": \"p\", \"version\": \"1.0.0\"}\n"
+        },
+        {
+          "path": ".gitmodules",
+          "mode": "100644",
+          "text": "[submodule \"units\"]\n"
+        },
+        {
+          "path": "models",
+          "mode": "040000"
+        },
+        {
+          "path": "models/A.sysml",
+          "mode": "100644",
+          "text": "package A;\n"
+        },
+        {
+          "path": "models/link.sysml",
+          "mode": "120000",
+          "text": "A.sysml"
+        },
+        {
+          "path": "vendor",
+          "mode": "040000"
+        },
+        {
+          "path": "vendor/units",
+          "mode": "160000",
+          "commit": "0123456789abcdef0123456789abcdef01234567"
+        }
+      ],
+      "expected_members": null,
+      "expected_errors": [
+        {
+          "rule": "symbolic-link",
+          "paths": [
+            "models/link.sysml"
+          ]
+        },
+        {
+          "rule": "unsupported-entry",
+          "paths": [
+            "vendor/units"
+          ]
+        }
+      ],
+      "expected_warnings": []
+    },
+    {
+      "name": "archive-unix-deflate",
+      "source": "archive",
+      "description": "A2, E3, M1: a ZIP from a Unix tool with UTF-8 names (flag set on every entry), directory entries, a 0755 file, deflate and stored data.",
+      "archive": [
+        {
+          "name": ".project.json",
+          "text": "{\"name\": \"p\", \"version\": \"1.0.0\"}\n",
+          "utf8_flag": true
+        },
+        {
+          "name": ".meta.json",
+          "text": "{}\n",
+          "utf8_flag": true
+        },
+        {
+          "name": "models/",
+          "utf8_flag": true
+        },
+        {
+          "name": "models/B.sysml",
+          "text": "package B;\n",
+          "utf8_flag": true,
+          "mode": "100755",
+          "method": 0
+        },
+        {
+          "name": "models/Modèle.sysml",
+          "text": "package M;\n",
+          "utf8_flag": true
+        },
+        {
+          "name": "empty/",
+          "utf8_flag": true
+        }
+      ],
+      "expected_members": [
+        {
+          "path": ".meta.json",
+          "text": "{}\n"
+        },
+        {
+          "path": ".project.json",
+          "text": "{\"name\": \"p\", \"version\": \"1.0.0\"}\n"
+        },
+        {
+          "path": "models/B.sysml",
+          "text": "package B;\n"
+        },
+        {
+          "path": "models/Modèle.sysml",
+          "text": "package M;\n"
+        }
+      ],
+      "expected_errors": [],
+      "expected_warnings": []
+    },
+    {
+      "name": "archive-dos-stored",
+      "source": "archive",
+      "description": "A1, M1: the same members from an MS-DOS-host archive, everything stored, no directory entries, ASCII names without the UTF-8 flag and the one non-ASCII name with it. The members equal archive-unix-deflate's: host, attributes and compression do not affect them.",
+      "archive": [
+        {
+          "name": "models/Modèle.sysml",
+          "text": "package M;\n",
+          "utf8_flag": true,
+          "host": "dos",
+          "method": 0
+        },
+        {
+          "name": "models/B.sysml",
+          "text": "package B;\n",
+          "host": "dos",
+          "method": 0
+        },
+        {
+          "name": ".meta.json",
+          "text": "{}\n",
+          "host": "dos",
+          "method": 0
+        },
+        {
+          "name": ".project.json",
+          "text": "{\"name\": \"p\", \"version\": \"1.0.0\"}\n",
+          "host": "dos",
+          "method": 0
+        }
+      ],
+      "expected_members": [
+        {
+          "path": ".meta.json",
+          "text": "{}\n"
+        },
+        {
+          "path": ".project.json",
+          "text": "{\"name\": \"p\", \"version\": \"1.0.0\"}\n"
+        },
+        {
+          "path": "models/B.sysml",
+          "text": "package B;\n"
+        },
+        {
+          "path": "models/Modèle.sysml",
+          "text": "package M;\n"
+        }
+      ],
+      "expected_errors": [],
+      "expected_warnings": []
+    },
+    {
+      "name": "archive-name-encoding",
+      "source": "archive",
+      "description": "A1: a non-ASCII name without the UTF-8 flag is accepted when its bytes are valid UTF-8, with an undeclared-name-encoding warning. Bytes that are not UTF-8 (CP437 0x8A), even with a Unicode Path extra field (0x7075) giving a UTF-8 name, are an error. A flagged name that is not UTF-8 fails P1.",
+      "archive": [
+        {
+          "name": ".project.json",
+          "text": "{\"name\": \"p\", \"version\": \"1.0.0\"}\n"
+        },
+        {
+          "name": "Modèle.sysml",
+          "text": "package M;\n"
+        },
+        {
+          "name_hex": "4d6f648a6c652e73796d6c",
+          "text": "package M;\n"
+        },
+        {
+          "name_hex": "4d6f648a6c65322e73796d6c",
+          "text": "package M2;\n",
+          "upath": {
+            "name": "Modèle2.sysml"
+          }
+        },
+        {
+          "name_hex": "4d6fff2e73796d6c",
+          "text": "package X;\n",
+          "utf8_flag": true
+        }
+      ],
+      "expected_members": null,
+      "expected_errors": [
+        {
+          "rule": "undeclared-name-encoding",
+          "paths": [
+            "4d6f648a6c652e73796d6c"
+          ]
+        },
+        {
+          "rule": "undeclared-name-encoding",
+          "paths": [
+            "4d6f648a6c65322e73796d6c"
+          ]
+        },
+        {
+          "rule": "invalid-utf8",
+          "paths": [
+            "4d6fff2e73796d6c"
+          ]
+        }
+      ],
+      "expected_warnings": [
+        {
+          "rule": "undeclared-name-encoding",
+          "paths": [
+            "Modèle.sysml"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "archive-undeclared-utf8-macos",
+      "source": "archive",
+      "description": "A1: the shape macOS zip and Finder's Compress produce: UTF-8 names without bit 11 or a 0x7075 field, a directory entry and a __MACOSX resource fork. The member gets an undeclared-name-encoding warning; the excluded __MACOSX entry and the directory entry get none.",
+      "archive": [
+        {
+          "name": ".project.json",
+          "text": "{\"name\": \"p\", \"version\": \"1.0.0\"}\n"
+        },
+        {
+          "name": "models/"
+        },
+        {
+          "name": "models/Modèle.sysml",
+          "text": "package M;\n"
+        },
+        {
+          "name": "__MACOSX/models/._Modèle.sysml",
+          "hex": "00051607"
+        }
+      ],
+      "expected_members": [
+        {
+          "path": ".project.json",
+          "text": "{\"name\": \"p\", \"version\": \"1.0.0\"}\n"
+        },
+        {
+          "path": "models/Modèle.sysml",
+          "text": "package M;\n"
+        }
+      ],
+      "expected_errors": [],
+      "expected_warnings": [
+        {
+          "rule": "undeclared-name-encoding",
+          "paths": [
+            "models/Modèle.sysml"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "archive-unicode-path-field",
+      "source": "archive",
+      "description": "A1: a Unicode Path extra field is accepted only when it is version 1, its CRC matches the header name and its name equals the header name (A.sysml). A different name, a stale CRC or another version is unicode-path-mismatch.",
+      "archive": [
+        {
+          "name": ".project.json",
+          "text": "{\"name\": \"p\", \"version\": \"1.0.0\"}\n"
+        },
+        {
+          "name": "A.sysml",
+          "text": "package A;\n",
+          "upath": {
+            "name": "A.sysml"
+          }
+        },
+        {
+          "name": "B.sysml",
+          "text": "package B;\n",
+          "upath": {
+            "name": "C.sysml"
+          }
+        },
+        {
+          "name": "D.sysml",
+          "text": "package D;\n",
+          "upath": {
+            "name": "D.sysml",
+            "crc_of_name": false
+          }
+        },
+        {
+          "name": "E.sysml",
+          "text": "package E;\n",
+          "upath": {
+            "name": "E.sysml",
+            "version": 2
+          }
+        }
+      ],
+      "expected_members": null,
+      "expected_errors": [
+        {
+          "rule": "unicode-path-mismatch",
+          "paths": [
+            "B.sysml"
+          ]
+        },
+        {
+          "rule": "unicode-path-mismatch",
+          "paths": [
+            "D.sysml"
+          ]
+        },
+        {
+          "rule": "unicode-path-mismatch",
+          "paths": [
+            "E.sysml"
+          ]
+        }
+      ],
+      "expected_warnings": []
+    },
+    {
+      "name": "archive-unicode-path-field-ok",
+      "source": "archive",
+      "description": "A1: a matching Unicode Path extra field alone does not change the members.",
+      "archive": [
+        {
+          "name": ".project.json",
+          "text": "{\"name\": \"p\", \"version\": \"1.0.0\"}\n"
+        },
+        {
+          "name": "A.sysml",
+          "text": "package A;\n",
+          "upath": {
+            "name": "A.sysml"
+          }
+        }
+      ],
+      "expected_members": [
+        {
+          "path": ".project.json",
+          "text": "{\"name\": \"p\", \"version\": \"1.0.0\"}\n"
+        },
+        {
+          "path": "A.sysml",
+          "text": "package A;\n"
+        }
+      ],
+      "expected_errors": [],
+      "expected_warnings": []
+    },
+    {
+      "name": "archive-links-and-special",
+      "source": "archive",
+      "description": "E1, E2 from Unix modes: a link entry and a named pipe entry are errors. A link under __MACOSX/ is excluded by selection first.",
+      "archive": [
+        {
+          "name": ".project.json",
+          "text": "{\"name\": \"p\", \"version\": \"1.0.0\"}\n"
+        },
+        {
+          "name": "models/A.sysml",
+          "text": "package A;\n"
+        },
+        {
+          "name": "models/link.sysml",
+          "text": "A.sysml",
+          "mode": "120777",
+          "method": 0
+        },
+        {
+          "name": "pipe",
+          "mode": "010644"
+        },
+        {
+          "name": "__MACOSX/link",
+          "text": "x",
+          "mode": "120777",
+          "method": 0
+        }
+      ],
+      "expected_members": null,
+      "expected_errors": [
+        {
+          "rule": "symbolic-link",
+          "paths": [
+            "models/link.sysml"
+          ]
+        },
+        {
+          "rule": "unsupported-entry",
+          "paths": [
+            "pipe"
+          ]
+        }
+      ],
+      "expected_warnings": []
+    },
+    {
+      "name": "archive-unsafe-names",
+      "source": "archive",
+      "description": "A2: a leading slash or a drive letter is absolute-path (APPNOTE 4.4.17.1). Parent segments and backslashes are caught by the path rules P2 and P3.",
+      "archive": [
+        {
+          "name": ".project.json",
+          "text": "{\"name\": \"p\", \"version\": \"1.0.0\"}\n"
+        },
+        {
+          "name": "/abs.sysml",
+          "text": "x"
+        },
+        {
+          "name": "C:/x.sysml",
+          "text": "x"
+        },
+        {
+          "name": "c:y.sysml",
+          "text": "x"
+        },
+        {
+          "name": "../up.sysml",
+          "text": "x"
+        },
+        {
+          "name": "a\\b.sysml",
+          "text": "x"
+        }
+      ],
+      "expected_members": null,
+      "expected_errors": [
+        {
+          "rule": "absolute-path",
+          "paths": [
+            "/abs.sysml"
+          ]
+        },
+        {
+          "rule": "absolute-path",
+          "paths": [
+            "C:/x.sysml"
+          ]
+        },
+        {
+          "rule": "absolute-path",
+          "paths": [
+            "c:y.sysml"
+          ]
+        },
+        {
+          "rule": "invalid-segment",
+          "paths": [
+            "../up.sysml"
+          ]
+        },
+        {
+          "rule": "backslash",
+          "paths": [
+            "a\\b.sysml"
+          ]
+        }
+      ],
+      "expected_warnings": []
+    },
+    {
+      "name": "archive-encrypted",
+      "source": "archive",
+      "description": "A2: an entry with the encryption flag (bit 0) is an error.",
+      "archive": [
+        {
+          "name": ".project.json",
+          "text": "{\"name\": \"p\", \"version\": \"1.0.0\"}\n"
+        },
+        {
+          "name": "secret.sysml",
+          "text": "not really encrypted",
+          "encrypted": true,
+          "method": 0
+        }
+      ],
+      "expected_members": null,
+      "expected_errors": [
+        {
+          "rule": "encrypted-entry",
+          "paths": [
+            "secret.sysml"
+          ]
+        }
+      ],
+      "expected_warnings": []
+    },
+    {
+      "name": "archive-duplicate-names",
+      "source": "archive",
+      "description": "A2: two central directory entries with the same name bytes are an error, whatever their content.",
+      "archive": [
+        {
+          "name": ".project.json",
+          "text": "{\"name\": \"p\", \"version\": \"1.0.0\"}\n"
+        },
+        {
+          "name": "A.sysml",
+          "text": "package A;\n"
+        },
+        {
+          "name": "A.sysml",
+          "text": "package A2;\n"
+        }
+      ],
+      "expected_members": null,
+      "expected_errors": [
+        {
+          "rule": "duplicate-entry",
+          "paths": [
+            "A.sysml"
+          ]
+        }
+      ],
+      "expected_warnings": []
+    },
+    {
+      "name": "archive-file-directory-conflict",
+      "source": "archive",
+      "description": "A2: a name that is a file and also a directory (a prefix of another entry, or a directory entry) cannot be written to any file system.",
+      "archive": [
+        {
+          "name": ".project.json",
+          "text": "{\"name\": \"p\", \"version\": \"1.0.0\"}\n"
+        },
+        {
+          "name": "models",
+          "text": "file"
+        },
+        {
+          "name": "models/A.sysml",
+          "text": "package A;\n"
+        },
+        {
+          "name": "B/"
+        },
+        {
+          "name": "B",
+          "text": "file"
+        }
+      ],
+      "expected_members": null,
+      "expected_errors": [
+        {
+          "rule": "file-directory-conflict",
+          "paths": [
+            "models"
+          ]
+        },
+        {
+          "rule": "file-directory-conflict",
+          "paths": [
+            "B"
+          ]
+        }
+      ],
+      "expected_warnings": []
+    },
+    {
+      "name": "archive-inconsistent-entry-type",
+      "source": "archive",
+      "description": "A2: a directory name (trailing /) with data or a non-directory Unix type, and a directory Unix type without a trailing /, are errors.",
+      "archive": [
+        {
+          "name": ".project.json",
+          "text": "{\"name\": \"p\", \"version\": \"1.0.0\"}\n"
+        },
+        {
+          "name": "d/",
+          "text": "data",
+          "method": 0,
+          "mode": "040755"
+        },
+        {
+          "name": "e/",
+          "mode": "100644"
+        },
+        {
+          "name": "f",
+          "mode": "040755"
+        }
+      ],
+      "expected_members": null,
+      "expected_errors": [
+        {
+          "rule": "inconsistent-entry-type",
+          "paths": [
+            "d/"
+          ]
+        },
+        {
+          "rule": "inconsistent-entry-type",
+          "paths": [
+            "e/"
+          ]
+        },
+        {
+          "rule": "inconsistent-entry-type",
+          "paths": [
+            "f"
+          ]
+        }
+      ],
+      "expected_warnings": []
+    },
+    {
+      "name": "archive-header-and-data-errors",
+      "source": "archive",
+      "description": "A2: a local header name that differs from the central directory, a compression method other than stored (0) or deflate (8), and a wrong CRC-32 are errors.",
+      "archive": [
+        {
+          "name": ".project.json",
+          "text": "{\"name\": \"p\", \"version\": \"1.0.0\"}\n"
+        },
+        {
+          "name": "A.sysml",
+          "text": "package A;\n",
+          "local_name": "Z.sysml"
+        },
+        {
+          "name": "bz.sysml",
+          "text": "package BZ;\n",
+          "method": 12
+        },
+        {
+          "name": "crc.sysml",
+          "text": "package CRC;\n",
+          "bad_crc": true
+        }
+      ],
+      "expected_members": null,
+      "expected_errors": [
+        {
+          "rule": "local-header-mismatch",
+          "paths": [
+            "A.sysml"
+          ]
+        },
+        {
+          "rule": "unsupported-compression",
+          "paths": [
+            "bz.sysml"
+          ]
+        },
+        {
+          "rule": "crc-mismatch",
+          "paths": [
+            "crc.sysml"
+          ]
+        }
+      ],
+      "expected_warnings": []
+    }
+  ]
+}

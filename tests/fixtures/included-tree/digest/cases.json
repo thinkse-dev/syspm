@@ -1,0 +1,191 @@
+{
+  "_comment": "Content digest test vectors for format included-tree-v1 (docs/specs/included-tree.md, section 5). Each case is a package tree (files: path -> text, or {hex}). expected_paths and known_sha256 are written by hand. expected_manifest and expected_digest were produced with general-purpose tools (find, sort, shasum; the recipe in the specification's appendix).",
+  "format": "included-tree-v1",
+  "policy": "default-v1",
+  "algorithm": "sha256",
+  "cases": [
+    {
+      "name": "single-member",
+      "description": "The smallest package: only .project.json.",
+      "files": {
+        ".project.json": "{\"name\": \"p\", \"version\": \"1.0.0\"}\n"
+      },
+      "expected_paths": [
+        ".project.json"
+      ],
+      "expected_manifest": [
+        "36fd4b8c88af8d191d4c443e2e4977301b14a2ddb7dbe6151888792edf2984bc  .project.json"
+      ],
+      "expected_digest": "7199e9d2a7c616b69022057216a8d52bf61ea8a57f5e0f813d5984f3cddee20f"
+    },
+    {
+      "name": "known-answers",
+      "description": "Per-file lines checkable against published values: SHA-256(\"abc\") (FIPS 180-2, appendix B.1) and SHA-256 of the empty string.",
+      "files": {
+        ".project.json": "{\"name\": \"p\", \"version\": \"1.0.0\"}\n",
+        "abc.txt": "abc",
+        "empty.txt": ""
+      },
+      "expected_paths": [
+        ".project.json",
+        "abc.txt",
+        "empty.txt"
+      ],
+      "known_sha256": {
+        "abc.txt": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+        "empty.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "expected_manifest": [
+        "36fd4b8c88af8d191d4c443e2e4977301b14a2ddb7dbe6151888792edf2984bc  .project.json",
+        "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad  abc.txt",
+        "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  empty.txt"
+      ],
+      "expected_digest": "ea3e85afb3fb10fd9ae419d0c78445089a74337487eec727b6baab4ca3d0a865"
+    },
+    {
+      "name": "policy-exclusions",
+      "description": "known-answers plus entries default-v1 excludes (S2-S5): the digest is unchanged.",
+      "files": {
+        ".project.json": "{\"name\": \"p\", \"version\": \"1.0.0\"}\n",
+        "abc.txt": "abc",
+        "empty.txt": "",
+        ".git/HEAD": "ref: refs/heads/main\n",
+        ".DS_Store": "finder",
+        "models/.DS_Store": "finder",
+        "__MACOSX/._abc.txt": "fork",
+        "syspm.toml": "[cache]\n",
+        ".project-lock.json": "{\"format\": \"project-lock-v1\"}\n",
+        ".project-sources.json": "{\"format\": \"project-sources-v1\"}\n",
+        "lib/.project.json": "{\"name\": \"lib\", \"version\": \"1.0.0\"}\n",
+        "lib/L.sysml": "package L;\n"
+      },
+      "expected_paths": [
+        ".project.json",
+        "abc.txt",
+        "empty.txt"
+      ],
+      "same_digest_as": "known-answers",
+      "expected_manifest": [
+        "36fd4b8c88af8d191d4c443e2e4977301b14a2ddb7dbe6151888792edf2984bc  .project.json",
+        "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad  abc.txt",
+        "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  empty.txt"
+      ],
+      "expected_digest": "ea3e85afb3fb10fd9ae419d0c78445089a74337487eec727b6baab4ca3d0a865"
+    },
+    {
+      "name": "ordering",
+      "description": "Canonical order is UTF-8 byte order of the whole path (section 3): B before a, a-b before a.sysml before a/x, é after z.",
+      "files": {
+        ".project.json": "{\"name\": \"p\", \"version\": \"1.0.0\"}\n",
+        "a.sysml": "a\n",
+        "B.sysml": "B\n",
+        "a-b.sysml": "ab\n",
+        "a/x.sysml": "x\n",
+        "z.sysml": "z\n",
+        "é.sysml": "e\n"
+      },
+      "expected_paths": [
+        ".project.json",
+        "B.sysml",
+        "a-b.sysml",
+        "a.sysml",
+        "a/x.sysml",
+        "z.sysml",
+        "é.sysml"
+      ],
+      "expected_manifest": [
+        "36fd4b8c88af8d191d4c443e2e4977301b14a2ddb7dbe6151888792edf2984bc  .project.json",
+        "c0cde77fa8fef97d476c10aad3d2d54fcc2f336140d073651c2dcccf1e379fd6  B.sysml",
+        "a63d8014dba891345b30174df2b2a57efbb65b4f9f09b98f245d1b3192277ece  a-b.sysml",
+        "87428fc522803d31065e7bce3cf03fe475096631e5e07bbd7a0fde60c4cf25c7  a.sysml",
+        "73cb3858a687a8494ca3323053016282f3dad39d42cf62ca4e79dda2aac7d9ac  a/x.sysml",
+        "c865f6c5ab8d1b0bcd383a5e1e3879d22681c96bf462c269b7581d523fbe70ab  z.sysml",
+        "a2bbdb2de53523b8099b37013f251546f3d65dbe7a0774fa41af0a4176992fd4  é.sysml"
+      ],
+      "expected_digest": "1cb8d5f535e7b609855534b937aeac21b049acf91d6722095dad6b97292d9064"
+    },
+    {
+      "name": "nfd-name",
+      "description": "A file created with a decomposed (NFD) name appears in the manifest under its NFC path.",
+      "files": {
+        ".project.json": "{\"name\": \"p\", \"version\": \"1.0.0\"}\n",
+        "Modèle.sysml": "package M;\n"
+      },
+      "expected_paths": [
+        ".project.json",
+        "Modèle.sysml"
+      ],
+      "expected_manifest": [
+        "36fd4b8c88af8d191d4c443e2e4977301b14a2ddb7dbe6151888792edf2984bc  .project.json",
+        "30b3694c0cac03a3f5e92b0a1f154a1e50d8f91c8249c76179708c069d1bef87  Modèle.sysml"
+      ],
+      "expected_digest": "72bde75b0dd5a38d3f6746b73c861fb02b74f7970be2681ccd7930f0231f4db9"
+    },
+    {
+      "name": "line-endings",
+      "description": "LF and CRLF versions of the same text are different bytes and different lines (B1).",
+      "files": {
+        ".project.json": "{\"name\": \"p\", \"version\": \"1.0.0\"}\n",
+        "crlf.sysml": {
+          "hex": "7061636b61676520413b0d0a"
+        },
+        "lf.sysml": "package A;\n"
+      },
+      "expected_paths": [
+        ".project.json",
+        "crlf.sysml",
+        "lf.sysml"
+      ],
+      "expected_manifest": [
+        "36fd4b8c88af8d191d4c443e2e4977301b14a2ddb7dbe6151888792edf2984bc  .project.json",
+        "7cd7003e70526a25688421d4380a17ee0ed52b9eaaf0fd2d78b14fa50f687c4f  crlf.sysml",
+        "d57b369878381818abf6e137575d170ed230aa147639a20fe3b870516f0a05f9  lf.sysml"
+      ],
+      "expected_digest": "cd01a9f2074023dd4226bd85d011a1c44c28cccab1e2a595c30e54574fe588bb"
+    },
+    {
+      "name": "spaces-and-nesting",
+      "description": "Paths with spaces and several directory levels; directories themselves contribute nothing.",
+      "files": {
+        ".project.json": "{\"name\": \"p\", \"version\": \"1.0.0\"}\n",
+        "Domain Libraries/Analysis/My Model.sysml": "package M;\n",
+        "models/deep/er/x.sysml": "package X;\n"
+      },
+      "expected_paths": [
+        ".project.json",
+        "Domain Libraries/Analysis/My Model.sysml",
+        "models/deep/er/x.sysml"
+      ],
+      "expected_manifest": [
+        "36fd4b8c88af8d191d4c443e2e4977301b14a2ddb7dbe6151888792edf2984bc  .project.json",
+        "30b3694c0cac03a3f5e92b0a1f154a1e50d8f91c8249c76179708c069d1bef87  Domain Libraries/Analysis/My Model.sysml",
+        "a80e877f8e56fc7016d6f52ea2bd360fb6b4044bfbc7a0d363b9764fc0c65d36  models/deep/er/x.sysml"
+      ],
+      "expected_digest": "d2be32b17dc96c01b4df8fcda3aa6c37d578ddb52be8e9c6811550bab0d9d95a"
+    },
+    {
+      "name": "transports",
+      "description": "One tree from a directory, from a Git subdirectory (before and after an unrelated commit elsewhere in the repository) and from a ZIP archive gives one digest. A ZIP made by git archive with core.autocrlf=true holds CRLF bytes, so its digest differs.",
+      "files": {
+        ".project.json": "{\"name\": \"p\", \"version\": \"1.0.0\"}\n",
+        ".meta.json": "{\"index\": {\"M\": \"models/Modèle.sysml\"}, \"created\": \"2026-11-11T00:00:00Z\"}\n",
+        "models/Modèle.sysml": "package M;\n",
+        "models/B.sysml": "package B;\n"
+      },
+      "expected_paths": [
+        ".meta.json",
+        ".project.json",
+        "models/B.sysml",
+        "models/Modèle.sysml"
+      ],
+      "transports": true,
+      "expected_manifest": [
+        "c6ceeb6d7db9832a80c15777ba1b493126b0990852e7f83aa9b0028b8a991772  .meta.json",
+        "36fd4b8c88af8d191d4c443e2e4977301b14a2ddb7dbe6151888792edf2984bc  .project.json",
+        "aad555872350c69279a0d108e8249b82c9cbd5c7b8b3cbe6ad421c87ac2ef4c0  models/B.sysml",
+        "30b3694c0cac03a3f5e92b0a1f154a1e50d8f91c8249c76179708c069d1bef87  models/Modèle.sysml"
+      ],
+      "expected_digest": "7e2dfb7dbd0c2d31f0205dd2b9e9bef58f8534aa73589ce524613e15e689c511"
+    }
+  ]
+}
