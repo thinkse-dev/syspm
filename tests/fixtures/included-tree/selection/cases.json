@@ -1,0 +1,178 @@
+{
+  "_comment": "Selection test vectors for policy default-v1 (docs/specs/included-tree.md, section 2). Each case is a tree to build in a temporary directory: 'files' maps a path to UTF-8 text and 'dirs' lists empty directories. Some entries (.git, .DS_Store) cannot be stored in a Git repository, so they are not checked in as files. Expected members, exclusions with their rule, and errors are written by hand. 'existing_fixtures' names fixtures in this directory to read in place.",
+  "policy": "default-v1",
+  "cases": [
+    {
+      "name": "single-project-repository",
+      "description": "Package root is the repository root: every default-v1 rule applies at least once.",
+      "root": ".",
+      "files": {
+        ".git/HEAD": "ref: refs/heads/main\n",
+        ".git/config": "[core]\n",
+        ".gitignore": "build/\n",
+        ".gitattributes": "*.sysml text\n",
+        ".gitmodules": "",
+        ".project.json": "{\"name\": \"single\", \"version\": \"1.0.0\"}\n",
+        ".meta.json": "{\"index\": {\"A\": \"models/A.sysml\"}, \"created\": \"2026-11-11T00:00:00Z\"}\n",
+        ".DS_Store": "finder\n",
+        "Thumbs.db": "thumbs\n",
+        "desktop.ini": "[.ShellClassInfo]\n",
+        "__MACOSX/models/._A.sysml": "resource fork\n",
+        "syspm.toml": "[cache]\n",
+        ".project-lock.json": "{\"format\": \"project-lock-v1\"}\n",
+        ".project-sources.json": "{\"format\": \"project-sources-v1\"}\n",
+        "models/.project-lock.json": "only excluded at the root\n",
+        ".vscode/settings.json": "{}\n",
+        ".hidden/H.sysml": "package H;\n",
+        "build/out.json": "{}\n",
+        "docs/diagram.png": "not really a png\n",
+        "models/A.sysml": "package A;\n",
+        "models/.DS_Store": "finder\n",
+        "models/syspm.toml": "only excluded at the root\n",
+        "CVS/Model.sysml": "package CVS;\n",
+        "weird/.project.json/inner.txt": "a directory named .project.json is not a package root\n",
+        "lib/.project.json": "{\"name\": \"lib\", \"version\": \"1.0.0\"}\n",
+        "lib/L.sysml": "package L;\n",
+        "lib/deep/D.sysml": "package D;\n",
+        "vendor/.git": "gitdir: ../.git/modules/vendor\n",
+        "vendor/V.sysml": "package V;\n",
+        "tools/.git/.project.json": "inside version control metadata\n"
+      },
+      "dirs": [
+        "empty",
+        "models/empty"
+      ],
+      "expected_members": [
+        ".gitattributes",
+        ".gitignore",
+        ".gitmodules",
+        ".hidden/H.sysml",
+        ".meta.json",
+        ".project.json",
+        ".vscode/settings.json",
+        "CVS/Model.sysml",
+        "build/out.json",
+        "docs/diagram.png",
+        "models/.project-lock.json",
+        "models/A.sysml",
+        "models/syspm.toml",
+        "vendor/V.sysml",
+        "weird/.project.json/inner.txt"
+      ],
+      "expected_excluded": {
+        ".DS_Store": "S4",
+        ".git/HEAD": "S3",
+        ".project-lock.json": "S5",
+        ".project-sources.json": "S5",
+        ".git/config": "S3",
+        "Thumbs.db": "S4",
+        "__MACOSX/models/._A.sysml": "S4",
+        "desktop.ini": "S4",
+        "lib/.project.json": "S2",
+        "lib/L.sysml": "S2",
+        "lib/deep/D.sysml": "S2",
+        "models/.DS_Store": "S4",
+        "syspm.toml": "S5",
+        "tools/.git/.project.json": "S3",
+        "vendor/.git": "S3"
+      },
+      "expected_errors": []
+    },
+    {
+      "name": "monorepo-subdirectory",
+      "description": "Package root libs/gauge inside a repository: entries outside it are never considered.",
+      "root": "libs/gauge",
+      "files": {
+        ".git/HEAD": "ref: refs/heads/main\n",
+        ".gitattributes": "* text=auto\n",
+        "README.md": "repository readme\n",
+        "libs/gauge/.project.json": "{\"name\": \"gauge\", \"version\": \"0.1.0\"}\n",
+        "libs/gauge/.meta.json": "{\"index\": {\"Gauge\": \"Gauge.sysml\"}, \"created\": \"2026-11-11T00:00:00Z\"}\n",
+        "libs/gauge/Gauge.sysml": "package Gauge;\n",
+        "libs/other/.project.json": "{\"name\": \"other\", \"version\": \"0.1.0\"}\n",
+        "libs/other/Other.sysml": "package Other;\n"
+      },
+      "dirs": [],
+      "expected_members": [
+        ".meta.json",
+        ".project.json",
+        "Gauge.sysml"
+      ],
+      "expected_excluded": {},
+      "expected_errors": []
+    },
+    {
+      "name": "recorded-path-excluded",
+      "description": "Paths in .meta.json that name excluded entries are errors (S7); a member path is fine.",
+      "root": ".",
+      "files": {
+        ".project.json": "{\"name\": \"recorded\", \"version\": \"1.0.0\"}\n",
+        ".meta.json": "{\"index\": {\"A\": \"A.sysml\", \"Evil\": \".svn/Evil.sysml\", \"L\": \"lib/L.sysml\", \"Mac\": \"__MACOSX/M.sysml\"}, \"created\": \"2026-11-11T00:00:00Z\", \"checksum\": {\"syspm.toml\": {\"value\": \"00\", \"algorithm\": \"SHA256\"}}}\n",
+        "A.sysml": "package A;\n",
+        ".svn/Evil.sysml": "package Evil;\n",
+        "lib/.project.json": "{\"name\": \"lib\", \"version\": \"1.0.0\"}\n",
+        "lib/L.sysml": "package L;\n",
+        "__MACOSX/M.sysml": "package M;\n",
+        "syspm.toml": "[cache]\n"
+      },
+      "dirs": [],
+      "expected_members": [
+        ".meta.json",
+        ".project.json",
+        "A.sysml"
+      ],
+      "expected_excluded": {
+        ".svn/Evil.sysml": "S3",
+        "__MACOSX/M.sysml": "S4",
+        "lib/.project.json": "S2",
+        "lib/L.sysml": "S2",
+        "syspm.toml": "S5"
+      },
+      "expected_errors": [
+        {
+          "rule": "recorded-path-excluded",
+          "path": ".svn/Evil.sysml",
+          "excluded_by": "S3"
+        },
+        {
+          "rule": "recorded-path-excluded",
+          "path": "__MACOSX/M.sysml",
+          "excluded_by": "S4"
+        },
+        {
+          "rule": "recorded-path-excluded",
+          "path": "lib/L.sysml",
+          "excluded_by": "S2"
+        },
+        {
+          "rule": "recorded-path-excluded",
+          "path": "syspm.toml",
+          "excluded_by": "S5"
+        }
+      ]
+    }
+  ],
+  "existing_fixtures": [
+    {
+      "name": "syspm-repository-discovery",
+      "description": "The repository's tests/fixtures/discovery (path relative to the repository root), read in place (never modified).",
+      "path": "tests/fixtures/discovery",
+      "expected_members": [
+        ".hidden/Hidden.sysml",
+        ".meta.json",
+        ".project.json",
+        "Core.kerml",
+        "Root.sysml",
+        "models/Nested.sysml",
+        "models/deep/Deep.kerml",
+        "models/notes.txt",
+        "settings.json"
+      ],
+      "expected_excluded": {
+        "subproject/.project.json": "S2",
+        "subproject/Sub.sysml": "S2",
+        "subproject/models/SubNested.sysml": "S2"
+      }
+    }
+  ]
+}

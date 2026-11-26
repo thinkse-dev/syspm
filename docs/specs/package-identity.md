@@ -43,7 +43,7 @@ An IRI is ambiguous when two or more candidate projects with the same version an
 
 ## 3. Instance identity
 
-A package instance is identified by its logical IRI, its `version` and a content digest. The digest will be specified with the included tree.
+A package instance is identified by its logical IRI, its `version` and a content digest. The digest is the `included-tree-v1` digest of the package's included files, specified in [included-tree.md](included-tree.md).
 
 The origin, such as a path or a repository with a subdirectory and a commit, is recorded separately and doesn't change identity.
 

@@ -1,0 +1,25 @@
+{
+  "policy": "default-v1",
+  "status": "provisional",
+  "specification": "../included-tree.md",
+  "nestedPackageRoots": "exclude",
+  "excludedNamesAnyDepth": [
+    ".git",
+    ".hg",
+    ".svn",
+    ".bzr",
+    ".jj",
+    "_darcs",
+    ".fslckout",
+    "_FOSSIL_",
+    ".DS_Store",
+    "Thumbs.db",
+    "desktop.ini",
+    "__MACOSX"
+  ],
+  "excludedNamesAtRoot": [
+    "syspm.toml",
+    ".project-sources.json",
+    ".project-lock.json"
+  ]
+}

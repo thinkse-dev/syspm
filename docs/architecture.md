@@ -127,6 +127,10 @@ How `.project.json` and `.meta.json` are found, read and validated is
 specified in [specs/project-metadata.md](specs/project-metadata.md). What
 identifies a package, how versions and constraints are read, and which data
 syspm owns is specified in [specs/package-identity.md](specs/package-identity.md).
+Which files make up a package's content, and its content digest
+(`included-tree-v1`), are specified in
+[specs/included-tree.md](specs/included-tree.md). Root `syspm.toml` and the
+shared resolution files are not part of that content.
 
 The sources and lock files use tool-neutral formats, so that another tool can
 read them and reproduce a result. Their formats will be specified in
